@@ -198,7 +198,7 @@ class FormHelper {
     // Do not alter the form, if sitemap is disabled for the entity type of this
     // entity instance.
     elseif ($this->getEntityCategory() === 'instance'
-      && !$this->generator->bundleIsIndexed($this->getEntityTypeId(), $this->getBundleName())) {
+      && !$this->generator->bundleIsIndexed(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getBundleName())) {
       return FALSE;
     }
 
@@ -229,13 +229,13 @@ class FormHelper {
     $prefix = $multiple ? $this->getEntityTypeId() . '_' : '';
 
     if ($this->getEntityCategory() === 'instance') {
-      $bundle_settings = $this->generator->getBundleSettings($this->getEntityTypeId(), $this->getBundleName());
+      $bundle_settings = $this->generator->getBundleSettings(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getBundleName());
       $settings = NULL !== $this->getInstanceId()
-        ? $this->generator->getEntityInstanceSettings($this->getEntityTypeId(), $this->getInstanceId())
+        ? $this->generator->getEntityInstanceSettings(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getInstanceId())
         : $bundle_settings;
     }
     else {
-      $settings = $this->generator->getBundleSettings($this->getEntityTypeId(), $this->getBundleName());
+      $settings = $this->generator->getBundleSettings(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getBundleName());
     }
     Simplesitemap::supplementDefaultSettings('entity', $settings, ['index' => 0]);
 

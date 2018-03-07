@@ -103,16 +103,22 @@ class CustomUrlGenerator extends UrlGeneratorBase {
   /**
    * @inheritdoc
    */
-  public function getDataSets() {
+  public function getDataSets($context) {
     $this->includeImages = $this->generator->getSetting('custom_links_include_images', FALSE);
-
-    return array_values($this->generator->getCustomLinks());
+    $custom_links = $this->generator->getCustomLinks();
+    // filtrar por el contexto actual
+    foreach ($custom_links as $key => $link) {
+      if ($link['meta']['context'] !== $context && $link['meta']['context'] !== 'always') {
+        unset($custom_links[$key]);
+      }
+    }
+    return array_values($custom_links);
   }
 
   /**
    * @inheritdoc
    */
-  protected function processDataSet($data_set) {
+  protected function processDataSet($context, $data_set) {
 
       // todo: Change to different function, as this also checks if current user has access. The user however varies depending if process was started from the web interface or via cron/drush. Use getUrlIfValidWithoutAccessCheck()?
       if (!$this->pathValidator->isValid($data_set['path'])) {
@@ -127,6 +133,9 @@ class CustomUrlGenerator extends UrlGeneratorBase {
       $url_object = Url::fromUserInput($data_set['path'], ['absolute' => TRUE]);
       $path = $url_object->getInternalPath();
 
+      if ($this->batchSettings['remove_duplicates_by_context'] && $this->pathProcessedByContext($context, $path)) {
+        return FALSE;
+      }
       if ($this->batchSettings['remove_duplicates'] && $this->pathProcessed($path)) {
         return FALSE;
       }
@@ -144,6 +153,7 @@ class CustomUrlGenerator extends UrlGeneratorBase {
           : [],
         'meta' => [
           'path' => $path,
+          'context' => $context,
         ]
       ];
 

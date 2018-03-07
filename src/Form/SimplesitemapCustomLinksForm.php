@@ -3,6 +3,7 @@
 namespace Drupal\simple_sitemap\Form;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\simple_sitemap\Simplesitemap;
 
 /**
  * Class SimplesitemapCustomLinksForm
@@ -140,6 +141,9 @@ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
           }
         }
       }
+      $custom_links[$i]['meta']['context'] = empty($link_settings[3])
+        ? Simplesitemap::CONTEXT_DEFAULT
+        : $link_settings[3];
     }
     return $custom_links;
   }
@@ -157,6 +161,9 @@ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
         : '';
       $setting_string .= isset($custom_link['changefreq'])
         ? ' ' . $custom_link['changefreq']
+        : '';
+      $setting_string .= isset($custom_link['meta']['context']) && $custom_link['meta']['context'] !== Simplesitemap::CONTEXT_DEFAULT
+        ? ' ' . $custom_link['meta']['context']
         : '';
       $setting_string .= "\r\n";
     }

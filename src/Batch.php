@@ -110,9 +110,9 @@ class Batch {
    * @param $plugin_id
    * @param array|null $data_sets
    */
-  public function addOperation($plugin_id, $data_sets = NULL) {
+  public function addOperation($plugin_id, $context, $data_sets = NULL) {
     $this->batch['operations'][] = [
-      __CLASS__ . '::generate', [$plugin_id, $data_sets, $this->batchSettings],
+      __CLASS__ . '::generate', [$plugin_id, $context, $data_sets, $this->batchSettings],
     ];
   }
 
@@ -126,12 +126,12 @@ class Batch {
    *
    * @see https://api.drupal.org/api/drupal/core!includes!form.inc/group/batch/8
    */
-  public static function generate($plugin_id, $data_sets, array $batch_settings, &$context) {
+  public static function generate($plugin_id, $sitemap_context, $data_sets, array $batch_settings, &$context) {
     \Drupal::service('plugin.manager.simple_sitemap.url_generator')
       ->createInstance($plugin_id)
       ->setContext($context)
       ->setBatchSettings($batch_settings)
-      ->generate($data_sets);
+      ->generate($sitemap_context, $data_sets);
   }
 
   /**
@@ -145,11 +145,14 @@ class Batch {
    */
   public static function finishGeneration($success, $results, $operations) {
     if ($success) {
-      $remove_sitemap = empty($results['chunk_count']);
-      if (!empty($results['generate']) || $remove_sitemap) {
-        \Drupal::service('simple_sitemap.sitemap_generator')
-          ->setSettings(['excluded_languages' => \Drupal::service('simple_sitemap.generator')->getSetting('excluded_languages', [])])
-          ->generateSitemap(!empty($results['generate']) ? $results['generate'] : [], $remove_sitemap);
+      $contexts = \Drupal::service('simple_sitemap.generator')->getSitemapContexts();
+      foreach ($contexts as $context => $context_info) {
+        $remove_sitemap = empty($results[$context]['chunk_count']);
+        if (!empty($results[$context]['generate']) || $remove_sitemap) {
+          \Drupal::service('simple_sitemap.sitemap_generator')
+            ->setSettings(['excluded_languages' => \Drupal::service('simple_sitemap.generator')->getSetting('excluded_languages', [])])
+            ->generateSitemap($context, !empty($results[$context]['generate']) ? $results[$context]['generate'] : [], $remove_sitemap);
+        }
       }
       Cache::invalidateTags(['simple_sitemap']);
       \Drupal::service('simple_sitemap.logger')->m(self::REGENERATION_FINISHED_MESSAGE,

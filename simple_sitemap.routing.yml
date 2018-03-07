@@ -13,16 +13,18 @@ simple_sitemap.sitemaps:
     _access: 'TRUE'
 
 simple_sitemap.chunk_fallback:
-  path: '/sitemaps/{chunk_id}'
+  path: '/sitemaps/{context}/sitemap.xml'
   defaults:
     _controller: '\Drupal\simple_sitemap\Controller\SimplesitemapController::getSitemap'
+#    context: 'default'
   requirements:
     _access: 'TRUE'
 
 simple_sitemap.chunk:
-  path: '/sitemaps/{chunk_id}/sitemap.xml'
+  path: '/sitemaps/{context}/{chunk_id}/sitemap.xml'
   defaults:
     _controller: '\Drupal\simple_sitemap\Controller\SimplesitemapController::getSitemap'
+#    context: 'default'
   requirements:
     _access: 'TRUE'
 

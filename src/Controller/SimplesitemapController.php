@@ -59,8 +59,8 @@ class SimplesitemapController extends ControllerBase {
    * @return object
    *   Returns an XML response.
    */
-  public function getSitemap($chunk_id = NULL) {
-    $output = $this->generator->getSitemap($chunk_id);
+  public function getSitemap($context = Simplesitemap::CONTEXT_DEFAULT, $chunk_id = NULL) {
+    $output = $this->generator->getSitemap($context, $chunk_id);
     if (!$output) {
       $this->cacheKillSwitch->trigger();
       throw new NotFoundHttpException();

@@ -120,6 +120,7 @@ function simple_sitemap_entity_form_submit($form, FormStateInterface &$form_stat
 
       case 'bundle':
         $generator->setBundleSettings(
+          \Drupal\simple_sitemap\Simplesitemap::CONTEXT_DEFAULT,
           $f->getEntityTypeId(),
           !empty($f->getBundleName()) ? $f->getBundleName() : $f->getFormEntityId(),
           $settings
@@ -128,6 +129,7 @@ function simple_sitemap_entity_form_submit($form, FormStateInterface &$form_stat
 
       case 'instance':
         $generator->setEntityInstanceSettings(
+          \Drupal\simple_sitemap\Simplesitemap::CONTEXT_DEFAULT,
           $f->getEntityTypeId(),
           !empty($f->getInstanceId()) ? $f->getInstanceId() : $f->getFormEntityId(),
           $settings
@@ -234,7 +236,7 @@ function simple_sitemap_delete_bundle_config($entity_type_id, $bundle) {
    * @var \Drupal\simple_sitemap\Simplesitemap $generator
    */
   $generator = \Drupal::service('simple_sitemap.generator');
-  $deleted_bundle_settings = $generator->getBundleSettings($entity_type_id, $bundle);
+  $deleted_bundle_settings = $generator->getBundleSettings(\Drupal\simple_sitemap\Simplesitemap::CONTEXT_DEFAULT, $entity_type_id, $bundle);
   if ($deleted_bundle_settings !== FALSE) {
 
     // Delete bundle settings.
@@ -256,4 +258,19 @@ function simple_sitemap_robotstxt() {
     '# XML sitemap',
     'Sitemap: ' . $GLOBALS['base_url'] . '/sitemap.xml', //todo: Use base URL setting?
   ];
+}
+
+
+/**
+ * Implements hook_simplesitemap_context_info().
+ */
+function simple_sitemap_simple_sitemap_context_info() {
+  $context = [];
+
+  $context['default'] = [
+    'name' => t('default'),
+    'description' => t('Default sitemap.'),
+  ];
+
+  return $context;
 }

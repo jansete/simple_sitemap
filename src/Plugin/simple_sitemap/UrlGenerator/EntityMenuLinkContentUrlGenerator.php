@@ -96,9 +96,9 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
   /**
    * @inheritdoc
    */
-  public function getDataSets() {
+  public function getDataSets($context) {
     $menu_names = [];
-    $bundle_settings = $this->generator->getBundleSettings();
+    $bundle_settings = $this->generator->getBundleSettings($context);
     if (!empty($bundle_settings['menu_link_content'])) {
       foreach ($bundle_settings['menu_link_content'] as $bundle_name => $settings) {
         if ($settings['index']) {
@@ -113,7 +113,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
   /**
    * @inheritdoc
    */
-  protected function processDataSet($link) {
+  protected function processDataSet($context, $link) {
 
     if (!$link->isEnabled()) {
       return FALSE;
@@ -129,12 +129,12 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
     // If not a menu_link_content link, use bundle settings.
     $meta_data = $link->getMetaData();
     if (empty($meta_data['entity_id'])) {
-      $entity_settings = $this->generator->getBundleSettings('menu_link_content', $link->getMenuName());
+      $entity_settings = $this->generator->getBundleSettings($context,'menu_link_content', $link->getMenuName());
     }
 
     // If menu link is of entity type menu_link_content, take under account its entity override.
     else {
-      $entity_settings = $this->generator->getEntityInstanceSettings('menu_link_content', $meta_data['entity_id']);
+      $entity_settings = $this->generator->getEntityInstanceSettings($context,'menu_link_content', $meta_data['entity_id']);
 
       if (empty($entity_settings['index'])) {
         return FALSE;
@@ -143,6 +143,9 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
 
     $path = $url_object->getInternalPath();
 
+    if ($this->batchSettings['remove_duplicates_by_context'] && $this->pathProcessedByContext($context, $path)) {
+      return FALSE;
+    }
     // Do not include paths that have been already indexed.
     if ($this->batchSettings['remove_duplicates'] && $this->pathProcessed($path)) {
       return FALSE;
@@ -166,6 +169,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
       // Additional info useful in hooks.
       'meta' => [
         'path' => $path,
+        'context' => $context,
       ]
     ];
     if (!empty($entity)) {

@@ -9,7 +9,7 @@ use Drupal\Component\Annotation\Plugin;
  *
  * @package Drupal\simple_sitemap\Annotation
  *
- * @see Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator\UrlGeneratorManager
+ * @see \Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator\UrlGeneratorManager
  * @see plugin_api
  *
  * @Annotation

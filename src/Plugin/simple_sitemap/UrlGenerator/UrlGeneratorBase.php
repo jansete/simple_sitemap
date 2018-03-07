@@ -168,28 +168,42 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     $this->context['results']['processed_elements'] = $elements;
   }
 
-  protected function getBatchResults() {
-    return !empty($this->context['results']['generate'])
-      ? $this->context['results']['generate']
+  protected function getProcessedElementsByContext($context) {
+    return !empty($this->context['results']['processed_paths_by_context'][$context])
+      ? $this->context['results']['processed_paths_by_context'][$context]
       : [];
   }
 
-  protected function addBatchResult($result) {
-    $this->context['results']['generate'][] = $result;
+  protected function addProcessedElementByContext($context, $path) {
+    $this->context['results']['processed_paths_by_context'][$context][] = $path;
   }
 
-  protected function setBatchResults($results) {
-    $this->context['results']['generate'] = $results;
+  protected function setProcessedElementsByContext($context, $elements) {
+    $this->context['results']['processed_elements_by_context'][$context] = $elements;
   }
 
-  protected function getChunkCount() {
-    return !empty($this->context['results']['chunk_count'])
-      ? $this->context['results']['chunk_count']
+  protected function getBatchResults($context) {
+    return !empty($this->context['results'][$context]['generate'])
+      ? $this->context['results'][$context]['generate']
+      : [];
+  }
+
+  protected function addBatchResult($context, $result) {
+    $this->context['results'][$context]['generate'][] = $result;
+  }
+
+  protected function setBatchResults($context, $results) {
+    $this->context['results'][$context]['generate'] = $results;
+  }
+
+  protected function getChunkCount($context) {
+    return !empty($this->context['results'][$context]['chunk_count'])
+      ? $this->context['results'][$context]['chunk_count']
       : 0;
   }
 
-  protected function setChunkCount($chunk_count) {
-    $this->context['results']['chunk_count'] = $chunk_count;
+  protected function setChunkCount($context, $chunk_count) {
+    $this->context['results'][$context]['chunk_count'] = $chunk_count;
   }
 
   /**
@@ -204,17 +218,25 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     return FALSE;
   }
 
+  protected function pathProcessedByContext($context, $path) {
+    if (in_array($path, $this->getProcessedElementsByContext($context))) {
+      return TRUE;
+    }
+    $this->addProcessedElementByContext($context, $path);
+    return FALSE;
+  }
+
   /**
    * @param array $path_data
    */
-  protected function addUrl(array $path_data) {
+  protected function addUrl($context, array $path_data) {
     if ($path_data['url'] instanceof Url) {
       $url_object = $path_data['url'];
       unset($path_data['url']);
-      $this->addUrlVariants($path_data, $url_object);
+      $this->addUrlVariants($context, $path_data, $url_object);
     }
     else {
-      $this->addBatchResult($path_data);
+      $this->addBatchResult($context, $path_data);
     }
   }
 
@@ -222,7 +244,7 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
    * @param Url $url_object
    * @param array $path_data
    */
-  protected function addUrlVariants(array $path_data, Url $url_object) {
+  protected function addUrlVariants($context, array $path_data, Url $url_object) {
     $entity = $this->entityHelper->getEntityFromUrlObject($url_object);
 
     if ($entity instanceof ContentEntityBase && $this->batchSettings['skip_untranslated']) {
@@ -244,6 +266,7 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
 
     foreach ($alternate_urls as $langcode => $url) {
       $this->addBatchResult(
+        $context,
         $path_data + [
           'langcode' => $langcode, 'url' => $url, 'alternate_urls' => $alternate_urls
         ]
@@ -298,8 +321,12 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
    * @param $max
    */
   protected function initializeBatch($max) {
-    $this->setBatchResults($this->getBatchResults());
-    $this->setChunkCount($this->getChunkCount());
+    $contexts = \Drupal::service('simple_sitemap.generator')->getSitemapContexts();
+    foreach ($contexts as $context => $context_info) {
+      $this->setBatchResults($context, $this->getBatchResults($context));
+      $this->setChunkCount($context, $this->getChunkCount($context));
+      $this->setProcessedElementsByContext($context, $this->getProcessedElementsByContext($context));
+    }
     $this->setProcessedElements($this->getProcessedElements());
 
     // Initialize sandbox for the batch process.
@@ -324,28 +351,28 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   /**
    *
    */
-  protected function processSegment() {
+  protected function processSegment($context) {
     if ($this->isBatch()) {
       $this->setProgressInfo();
     }
 
     if (!empty($max_links = $this->batchSettings['max_links'])
-      && count($this->getBatchResults()) >= $max_links) {
+      && count($this->getBatchResults($context)) >= $max_links) {
 
-      foreach (array_chunk($this->getBatchResults(), $max_links) as $chunk_links) {
+      foreach (array_chunk($this->getBatchResults($context), $max_links) as $chunk_links) {
 
         if (count($chunk_links) == $max_links) {
 
           // Generate sitemap.
           $this->sitemapGenerator
             ->setSettings(['excluded_languages' => $this->batchSettings['excluded_languages']])
-            ->generateSitemap($chunk_links, empty($this->getChunkCount()));
+            ->generateSitemap($context, $chunk_links, empty($this->getChunkCount($context)));
 
           // Update chunk count info.
-          $this->setChunkCount(empty($this->getChunkCount()) ? 1 : ($this->getChunkCount() + 1));
+          $this->setChunkCount($context, empty($this->getChunkCount($context)) ? 1 : ($this->getChunkCount($context) + 1));
 
           // Remove links from result array that have been generated.
-          $this->setBatchResults(array_slice($this->getBatchResults(), count($chunk_links)));
+          $this->setBatchResults($context, array_slice($this->getBatchResults($context), count($chunk_links)));
         }
       }
     }
@@ -363,15 +390,16 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   }
 
   protected function setProcessingBatchMessage() {
-    $results = $this->getBatchResults();
-    end($results);
-    if (!empty($path = $results[key($results)]['meta']['path'])) {
-      $this->context['message'] = $this->t(self::PROCESSING_PATH_MESSAGE, [
-        '@current' => $this->context['sandbox']['progress'],
-        '@max' => $this->context['sandbox']['max'],
-        '@path' => HTML::escape($path),
-      ]);
-    }
+    // @todo lógica pasar contexto a getBatchResults
+//    $results = $this->getBatchResults();
+//    end($results);
+//    if (!empty($path = $results[key($results)]['meta']['path'])) {
+//      $this->context['message'] = $this->t(self::PROCESSING_PATH_MESSAGE, [
+//        '@current' => $this->context['sandbox']['progress'],
+//        '@max' => $this->context['sandbox']['max'],
+//        '@path' => HTML::escape($path),
+//      ]);
+//    }
   }
 
   /**
@@ -401,30 +429,30 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   /**
    * @return array
    */
-  abstract public function getDataSets();
+  abstract public function getDataSets($context);
 
   /**
    * @param $data_set
    * @return array
    */
-  abstract protected function processDataSet($data_set);
+  abstract protected function processDataSet($context, $data_set);
 
   /**
    * Called by batch.
    *
    * @param array|null $data_sets
    */
-  public function generate($data_sets = NULL) {
-    $data_sets = NULL !== $data_sets ? $data_sets : $this->getDataSets();
+  public function generate($context, $data_sets = NULL) {
+    $data_sets = NULL !== $data_sets ? $data_sets : $this->getDataSets($context);
     foreach ($this->getBatchIterationElements($data_sets) as $id => $data_set) {
       $this->setCurrentId($id);
-      $path_data = $this->processDataSet($data_set);
+      $path_data = $this->processDataSet($context, $data_set);
       if (!$path_data) {
         continue;
       }
-      $this->addUrl($path_data);
+      $this->addUrl($context, $path_data);
     }
-    $this->processSegment();
+    $this->processSegment($context);
   }
 
   /**

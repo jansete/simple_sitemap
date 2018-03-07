@@ -47,11 +47,11 @@ function simple_sitemap_requirements($phase) {
           . ' ' . ($cron_generation
             ? 'Run cron, or <a href="@generate">regenerate</a> the sitemap manually.'
             : 'Generation on cron run is disabled. <a href="@generate">Regenerate</a> the sitemap manually.'), [
-              '@sitemap' => $GLOBALS['base_url'] . '/sitemap.xml',
-              '@ago' => $generated_ago,
-              '@generate' => $GLOBALS['base_url'] . '/admin/config/search/simplesitemap'
-            ]
-          );
+            '@sitemap' => $GLOBALS['base_url'] . '/sitemap.xml',
+            '@ago' => $generated_ago,
+            '@generate' => $GLOBALS['base_url'] . '/admin/config/search/simplesitemap'
+          ]
+        );
         $severity = REQUIREMENT_INFO;
       }
 
@@ -73,7 +73,13 @@ function simple_sitemap_schema() {
   $schema['simple_sitemap'] = [
     'description' => 'Holds XML sitemaps as strings for quick retrieval.',
     'fields' => [
-      'id' => [
+      'context' => [
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+      ],
+      'delta' => [
         'description' => 'Sitemap chunk unique identifier.',
         'type' => 'int',
         'size' => 'small',
@@ -94,7 +100,7 @@ function simple_sitemap_schema() {
         'unsigned' => TRUE,
       ],
     ],
-    'primary key' => ['id'],
+    'primary key' => ['context', 'delta'],
   ];
 
   $schema['simple_sitemap_entity_overrides'] = [
@@ -156,7 +162,7 @@ function simple_sitemap_update_8201() {
     }
   }
   \Drupal::service('config.factory')->getEditable('simple_sitemap.settings')
-    ->set('entity_types', $entity_types)->save();
+         ->set('entity_types', $entity_types)->save();
 }
 
 /**
@@ -207,12 +213,12 @@ function simple_sitemap_update_8202() {
         if (isset($bundle['entities'])) {
           foreach ($bundle['entities'] as $entity_id => $entity_settings) {
             $database->insert('simple_sitemap_entity_overrides')
-              ->fields([
-                'entity_type' => $entity_type_name,
-                'entity_id' => $entity_id,
-                'inclusion_settings' => serialize($entity_settings),
-              ])
-              ->execute();
+                     ->fields([
+                       'entity_type' => $entity_type_name,
+                       'entity_id' => $entity_id,
+                       'inclusion_settings' => serialize($entity_settings),
+                     ])
+                     ->execute();
           }
           // Remove entity overrides from configuration.
           unset($bundle['entities']);
@@ -222,7 +228,7 @@ function simple_sitemap_update_8202() {
   }
 
   \Drupal::service('config.factory')->getEditable('simple_sitemap.settings')
-    ->set('entity_types', $entity_types)->save();
+         ->set('entity_types', $entity_types)->save();
 }
 
 /**
@@ -236,11 +242,11 @@ function simple_sitemap_update_8203() {
       continue;
     }
     \Drupal::service('config.factory')->getEditable("simple_sitemap.$config_name")
-      ->setData($config)->save();
+           ->setData($config)->save();
   }
   $settings = $old_config->get('settings');
   \Drupal::service('config.factory')->getEditable("simple_sitemap.settings")
-    ->setData($settings)->save();
+         ->setData($settings)->save();
 }
 
 /**
@@ -257,15 +263,15 @@ function simple_sitemap_update_8204() {
 
       // Delete entity overrides.
       \Drupal::database()->delete('simple_sitemap_entity_overrides')
-        ->condition('entity_type', $entity_type_id)
-        ->execute();
+             ->condition('entity_type', $entity_type_id)
+             ->execute();
 
       // Delete entity type settings.
       unset($entity_types[$entity_type_id]);
     }
   }
   \Drupal::service('config.factory')->getEditable("simple_sitemap.entity_types")
-    ->setData($entity_types)->save();
+         ->setData($entity_types)->save();
 }
 
 /**
@@ -280,21 +286,21 @@ function simple_sitemap_update_8205() {
     $enabled_entity_types[] = $entity_type_id;
     foreach ($bundles as $bundle_name => $bundle_settings) {
       \Drupal::service('config.factory')
-        ->getEditable("simple_sitemap.bundle_settings.$entity_type_id.$bundle_name")
-        ->setData($bundle_settings)->save();
+             ->getEditable("simple_sitemap.bundle_settings.$entity_type_id.$bundle_name")
+             ->setData($bundle_settings)->save();
     }
   }
 
   // Add enabled entity type settings.
   \Drupal::service('config.factory')
-    ->getEditable('simple_sitemap.settings')
-    ->set('enabled_entity_types', $enabled_entity_types)
-    ->save();
+         ->getEditable('simple_sitemap.settings')
+         ->set('enabled_entity_types', $enabled_entity_types)
+         ->save();
 
   // Remove old configuration object.
   \Drupal::service('config.factory')
-    ->getEditable('simple_sitemap.entity_types')
-    ->delete();
+         ->getEditable('simple_sitemap.entity_types')
+         ->delete();
 }
 
 /**
@@ -308,7 +314,7 @@ function simple_sitemap_update_8206() {
     }
   }
   \Drupal::service('config.factory')->getEditable('simple_sitemap.custom')
-    ->setData(['links' => $custom_links])->save();
+         ->setData(['links' => $custom_links])->save();
 }
 
 /**
@@ -340,23 +346,23 @@ function simple_sitemap_update_8208() {
     $config = $config_factory->get($entity_type)->get();
     if (!isset($config['changefreq'])) {
       $config_factory->getEditable($entity_type)
-        ->setData($config + ['changefreq' => ''])
-        ->save();
+                     ->setData($config + ['changefreq' => ''])
+                     ->save();
     }
   }
 
   // Update existing entity override data.
   $results = \Drupal::database()->select('simple_sitemap_entity_overrides', 'o')
-    ->fields('o', ['id', 'inclusion_settings'])
-    ->execute()->fetchAll(\PDO::FETCH_OBJ);
+                    ->fields('o', ['id', 'inclusion_settings'])
+                    ->execute()->fetchAll(\PDO::FETCH_OBJ);
 
   foreach ($results as $row) {
     $settings = unserialize($row->inclusion_settings);
     if (!isset($settings['changefreq'])) {
       \Drupal::database()->update('simple_sitemap_entity_overrides')
-        ->fields(['inclusion_settings' => serialize($settings + ['changefreq' => '']),])
-        ->condition('id', $row->id)
-        ->execute();
+             ->fields(['inclusion_settings' => serialize($settings + ['changefreq' => '']),])
+             ->condition('id', $row->id)
+             ->execute();
     }
   }
 
@@ -376,25 +382,31 @@ function simple_sitemap_update_8209() {
     $config = $config_factory->get($entity_type)->get();
     if (!isset($config['include_images'])) {
       $config_factory->getEditable($entity_type)
-        ->setData($config + ['include_images' => 0])
-        ->save();
+                     ->setData($config + ['include_images' => 0])
+                     ->save();
     }
   }
 
   // Update existing entity override data.
   $results = \Drupal::database()->select('simple_sitemap_entity_overrides', 'o')
-    ->fields('o', ['id', 'inclusion_settings'])
-    ->execute()->fetchAll(\PDO::FETCH_OBJ);
+                    ->fields('o', ['id', 'inclusion_settings'])
+                    ->execute()->fetchAll(\PDO::FETCH_OBJ);
 
   foreach ($results as $row) {
     $settings = unserialize($row->inclusion_settings);
     if (!isset($settings['include_images'])) {
       \Drupal::database()->update('simple_sitemap_entity_overrides')
-        ->fields(['inclusion_settings' => serialize($settings + ['include_images' => 0]),])
-        ->condition('id', $row->id)
-        ->execute();
+             ->fields(['inclusion_settings' => serialize($settings + ['include_images' => 0]),])
+             ->condition('id', $row->id)
+             ->execute();
     }
   }
 
   return t('You may now want to configure your sitemap entities to include images.');
+}
+
+function simple_sitemap_update_8210() {
+  \Drupal::database()->schema()->dropTable('simple_sitemap');
+  $schema = simple_sitemap_schema();
+  \Drupal::database()->schema()->createTable('simple_sitemap', $schema['simple_sitemap']);
 }

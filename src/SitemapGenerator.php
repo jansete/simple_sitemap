@@ -130,16 +130,17 @@ class SitemapGenerator {
    * @param bool $remove_sitemap
    *   Remove old sitemap from database before inserting the new one.
    */
-  public function generateSitemap(array $links, $remove_sitemap = FALSE) {
+  public function generateSitemap($context, array $links, $remove_sitemap = FALSE) {
     $values = [
-      'id' => $remove_sitemap ? self::FIRST_CHUNK_INDEX
-        : $this->db->query('SELECT MAX(id) FROM {simple_sitemap}')
+      'context' => $context,
+      'delta' => $remove_sitemap ? self::FIRST_CHUNK_INDEX
+        : $this->db->query('SELECT MAX(delta) FROM {simple_sitemap} WHERE context = :context', [':context' => $context])
           ->fetchField() + 1,
       'sitemap_string' => $this->generateSitemapChunk($links),
       'sitemap_created' => $this->time->getRequestTime(),
     ];
     if ($remove_sitemap) {
-      $this->db->truncate('simple_sitemap')->execute();
+      $this->db->delete('simple_sitemap')->condition('context', $context)->execute();
     }
     $this->db->insert('simple_sitemap')->fields($values)->execute();
   }
@@ -152,7 +153,7 @@ class SitemapGenerator {
    *
    * @return string sitemap index
    */
-  public function generateSitemapIndex(array $chunk_info) {
+  public function generateSitemapIndex($context, array $chunk_info) {
     $this->writer->openMemory();
     $this->writer->setIndent(TRUE);
     $this->writer->startDocument(self::XML_VERSION, self::ENCODING);
@@ -168,7 +169,8 @@ class SitemapGenerator {
     // Add sitemap locations to document.
     foreach ($chunk_info as $chunk_id => $chunk_data) {
       $this->writer->startElement('sitemap');
-      $this->writer->writeElement('loc', $this->getCustomBaseUrl() . '/sitemaps/' . $chunk_id . '/' . 'sitemap.xml');
+      // @todo Url::fromRoute()->toString pero absolute a FALSE
+      $this->writer->writeElement('loc', $this->getCustomBaseUrl() . '/sitemaps/' . $context . '/' . $chunk_id . '/' . 'sitemap.xml');
       $this->writer->writeElement('lastmod', date_iso8601($chunk_data->sitemap_created));
       $this->writer->endElement();
     }

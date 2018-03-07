@@ -14,16 +14,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 abstract class SimplesitemapPluginBase extends PluginBase implements PluginInspectionInterface, ContainerFactoryPluginInterface {
 
   /**
-   * SimplesitemapPluginBase constructor.
-   * @param array $configuration
-   * @param string $plugin_id
-   * @param mixed $plugin_definition
-   */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition) {
-    parent::__construct($configuration, $plugin_id, $plugin_definition);
-  }
-
-  /**
    * @param \Symfony\Component\DependencyInjection\ContainerInterface $container
    * @param array $configuration
    * @param string $plugin_id

@@ -93,29 +93,34 @@ class EntityUrlGenerator extends UrlGeneratorBase {
   /**
    * @inheritdoc
    */
-  public function getDataSets() {
+  public function getDataSets($context) {
     $data_sets = [];
     $sitemap_entity_types = $this->entityHelper->getSupportedEntityTypes();
+    $bundle_settings = $this->generator->getBundleSettings($context);
 
-    foreach ($this->generator->getBundleSettings() as $entity_type_name => $bundles) {
-      if (isset($sitemap_entity_types[$entity_type_name])) {
+    \Drupal::service('module_handler')->alter('simple_sitemap_pre_generate_config', $bundle_settings, $context);
 
-        // Skip this entity type if another plugin is written to override its generation.
-        foreach ($this->urlGeneratorManager->getDefinitions() as $plugin) {
-          if ($plugin['enabled'] && !empty($plugin['settings']['overrides_entity_type'])
-            && $plugin['settings']['overrides_entity_type'] === $entity_type_name) {
-            continue 2;
+    if (!empty($bundle_settings)) {
+      foreach ($bundle_settings as $entity_type_name => $bundles) {
+        if (isset($sitemap_entity_types[$entity_type_name])) {
+
+          // Skip this entity type if another plugin is written to override its generation.
+          foreach ($this->urlGeneratorManager->getDefinitions() as $plugin) {
+            if ($plugin['enabled'] && !empty($plugin['settings']['overrides_entity_type'])
+              && $plugin['settings']['overrides_entity_type'] === $entity_type_name) {
+              continue 2;
+            }
           }
-        }
 
-        foreach ($bundles as $bundle_name => $bundle_settings) {
-          if ($bundle_settings['index']) {
-            $data_sets[] = [
-              'bundle_settings' => $bundle_settings,
-              'bundle_name' => $bundle_name,
-              'entity_type_name' => $entity_type_name,
-              'keys' => $sitemap_entity_types[$entity_type_name]->getKeys(),
-            ];
+          foreach ($bundles as $bundle_name => $bundle_settings) {
+            if ($bundle_settings['index']) {
+              $data_sets[] = [
+                'bundle_settings' => $bundle_settings,
+                'bundle_name' => $bundle_name,
+                'entity_type_name' => $entity_type_name,
+                'keys' => $sitemap_entity_types[$entity_type_name]->getKeys(),
+              ];
+            }
           }
         }
       }
@@ -127,12 +132,12 @@ class EntityUrlGenerator extends UrlGeneratorBase {
   /**
    * @inheritdoc
    */
-  protected function processDataSet($entity) {
+  protected function processDataSet($context, $entity) {
 
     $entity_id = $entity->id();
     $entity_type_name = $entity->getEntityTypeId();
 
-    $entity_settings = $this->generator->getEntityInstanceSettings($entity_type_name, $entity_id);
+    $entity_settings = $this->generator->getEntityInstanceSettings($context, $entity_type_name, $entity_id);
 
     if (empty($entity_settings['index'])) {
       return FALSE;
@@ -147,6 +152,9 @@ class EntityUrlGenerator extends UrlGeneratorBase {
 
     $path = $url_object->getInternalPath();
 
+    if ($this->batchSettings['remove_duplicates_by_context'] && $this->pathProcessedByContext($context, $path)) {
+      return FALSE;
+    }
     // Do not include paths that have been already indexed.
     if ($this->batchSettings['remove_duplicates'] && $this->pathProcessed($path)) {
       return FALSE;
@@ -169,7 +177,9 @@ class EntityUrlGenerator extends UrlGeneratorBase {
         'entity_info' => [
           'entity_type' => $entity_type_name,
           'id' => $entity_id,
+          'bundle' => $entity->bundle(),
         ],
+        'context' => $context,
       ]
     ];
   }
