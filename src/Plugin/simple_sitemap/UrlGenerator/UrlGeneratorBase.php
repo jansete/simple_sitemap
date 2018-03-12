@@ -197,13 +197,13 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   }
 
   protected function getChunkCount($context) {
-    return !empty($this->context['results'][$context]['chunk_count'])
-      ? $this->context['results'][$context]['chunk_count']
+    return !empty($this->context['results'][$context]['delta_count'])
+      ? $this->context['results'][$context]['delta_count']
       : 0;
   }
 
-  protected function setChunkCount($context, $chunk_count) {
-    $this->context['results'][$context]['chunk_count'] = $chunk_count;
+  protected function setChunkCount($context, $delta_count) {
+    $this->context['results'][$context]['delta_count'] = $delta_count;
   }
 
   /**
@@ -359,20 +359,20 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     if (!empty($max_links = $this->batchSettings['max_links'])
       && count($this->getBatchResults($context)) >= $max_links) {
 
-      foreach (array_chunk($this->getBatchResults($context), $max_links) as $chunk_links) {
+      foreach (array_chunk($this->getBatchResults($context), $max_links) as $delta_links) {
 
-        if (count($chunk_links) == $max_links) {
+        if (count($delta_links) == $max_links) {
 
           // Generate sitemap.
           $this->sitemapGenerator
             ->setSettings(['excluded_languages' => $this->batchSettings['excluded_languages']])
-            ->generateSitemap($context, $chunk_links, empty($this->getChunkCount($context)));
+            ->generateSitemap($context, $delta_links, empty($this->getChunkCount($context)));
 
-          // Update chunk count info.
+          // Update delta count info.
           $this->setChunkCount($context, empty($this->getChunkCount($context)) ? 1 : ($this->getChunkCount($context) + 1));
 
           // Remove links from result array that have been generated.
-          $this->setBatchResults($context, array_slice($this->getBatchResults($context), count($chunk_links)));
+          $this->setBatchResults($context, array_slice($this->getBatchResults($context), count($delta_links)));
         }
       }
     }

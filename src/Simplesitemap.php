@@ -166,46 +166,46 @@ class Simplesitemap {
   }
 
   /**
-   * Returns the whole sitemap, a requested sitemap chunk,
+   * Returns the whole sitemap, a requested sitemap delta,
    * or the sitemap index file.
    *
-   * @param int $chunk_id
+   * @param int $delta
    *
    * @return string|false
    *   If no sitemap id provided, either a sitemap index is returned, or the
    *   whole sitemap, if the amount of links does not exceed the max links
-   *   setting. If a sitemap id is provided, a sitemap chunk is returned. False
+   *   setting. If a sitemap id is provided, a sitemap delta is returned. False
    *   if sitemap is not retrievable from the database.
    */
-  public function getSitemap($context = Simplesitemap::CONTEXT_DEFAULT, $chunk_id = NULL) {
-    $chunk_info = $this->fetchSitemapChunkInfo($context);
+  public function getSitemap($context = Simplesitemap::CONTEXT_DEFAULT, $delta = NULL) {
+    $delta_info = $this->fetchSitemapChunkInfo($context);
 
-    if (NULL === $chunk_id || !isset($chunk_info[$chunk_id])) {
+    if (NULL === $delta || !isset($delta_info[$delta])) {
 
-      if (count($chunk_info) > 1) {
-        // Return sitemap index, if there are multiple sitemap chunks.
-        return $this->getSitemapIndex($context, $chunk_info);
+      if (count($delta_info) > 1) {
+        // Return sitemap index, if there are multiple sitemap deltas.
+        return $this->getSitemapIndex($context, $delta_info);
       }
       else {
-        // Return sitemap if there is only one chunk.
-        return count($chunk_info) === 1
-        && isset($chunk_info[SitemapGenerator::FIRST_CHUNK_INDEX])
+        // Return sitemap if there is only one delta.
+        return count($delta_info) === 1
+        && isset($delta_info[SitemapGenerator::FIRST_CHUNK_INDEX])
           ? $this->fetchSitemapChunk($context, SitemapGenerator::FIRST_CHUNK_INDEX)
             ->sitemap_string
           : FALSE;
       }
     }
     else {
-      // Return specific sitemap chunk.
-      return $this->fetchSitemapChunk($context, $chunk_id)->sitemap_string;
+      // Return specific sitemap delta.
+      return $this->fetchSitemapChunk($context, $delta)->sitemap_string;
     }
   }
 
   /**
-   * Fetches all sitemap chunk timestamps keyed by chunk ID.
+   * Fetches all sitemap delta timestamps keyed by delta ID.
    *
    * @return array
-   *   An array containing chunk creation timestamps keyed by chunk ID.
+   *   An array containing delta creation timestamps keyed by delta ID.
    */
   protected function fetchSitemapChunkInfo($context) {
     return $this->db->query('SELECT delta, sitemap_created FROM {simple_sitemap} WHERE context = :context',
@@ -213,13 +213,13 @@ class Simplesitemap {
   }
 
   /**
-   * Fetches a single sitemap chunk by ID.
+   * Fetches a single sitemap delta by ID.
    *
    * @param int $id
-   *   The chunk ID.
+   *   The delta ID.
    *
    * @return object
-   *   A sitemap chunk object.
+   *   A sitemap delta object.
    */
   protected function fetchSitemapChunk($context, $delta) {
     return $this->db->query('SELECT * FROM {simple_sitemap} WHERE context = :context AND delta = :delta',
@@ -277,18 +277,18 @@ class Simplesitemap {
   /**
    * Generates and returns the sitemap index as string.
    *
-   * @param array $chunk_info
-   *   Array containing chunk creation timestamps keyed by chunk ID.
+   * @param array $delta_info
+   *   Array containing delta creation timestamps keyed by delta ID.
    *
    * @return string
    *   The sitemap index.
    *
    * @todo Need to make sure response is cached.
    */
-  protected function getSitemapIndex($context, $chunk_info) {
+  protected function getSitemapIndex($context, $delta_info) {
     return $this->sitemapGenerator
       ->setSettings(['base_url' => $this->getSetting('base_url', '')])
-      ->generateSitemapIndex($context, $chunk_info);
+      ->generateSitemapIndex($context, $delta_info);
   }
 
   /**
@@ -298,10 +298,10 @@ class Simplesitemap {
    *   Formatted timestamp of last sitemap generation, otherwise FALSE.
    */
   public function getGeneratedAgo() {
-    $chunks = $this->fetchSitemapChunkInfo();
-    if (isset($chunks[SitemapGenerator::FIRST_CHUNK_INDEX]->sitemap_created)) {
+    $deltas = $this->fetchSitemapChunkInfo();
+    if (isset($deltas[SitemapGenerator::FIRST_CHUNK_INDEX]->sitemap_created)) {
       return $this->dateFormatter
-        ->formatInterval($this->time->getRequestTime() - $chunks[SitemapGenerator::FIRST_CHUNK_INDEX]
+        ->formatInterval($this->time->getRequestTime() - $deltas[SitemapGenerator::FIRST_CHUNK_INDEX]
             ->sitemap_created);
     }
     return FALSE;

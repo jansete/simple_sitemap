@@ -147,7 +147,7 @@ class Batch {
     if ($success) {
       $contexts = \Drupal::service('simple_sitemap.generator')->getSitemapContexts();
       foreach ($contexts as $context => $context_info) {
-        $remove_sitemap = empty($results[$context]['chunk_count']);
+        $remove_sitemap = empty($results[$context]['delta_count']);
         if (!empty($results[$context]['generate']) || $remove_sitemap) {
           \Drupal::service('simple_sitemap.sitemap_generator')
             ->setSettings(['excluded_languages' => \Drupal::service('simple_sitemap.generator')->getSetting('excluded_languages', [])])

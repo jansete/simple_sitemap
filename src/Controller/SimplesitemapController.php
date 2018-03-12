@@ -47,11 +47,11 @@ class SimplesitemapController extends ControllerBase {
   }
 
   /**
-   * Returns the whole sitemap, a requested sitemap chunk, or the sitemap index file.
+   * Returns the whole sitemap, a requested sitemap delta, or the sitemap index file.
    * Caches the response in case of expected output, prevents caching otherwise.
    *
-   * @param int $chunk_id
-   *   Optional ID of the sitemap chunk. If none provided, the first chunk or
+   * @param int $delta
+   *   Optional ID of the sitemap delta. If none provided, the first delta or
    *   the sitemap index is fetched.
    *
    * @throws NotFoundHttpException
@@ -59,8 +59,8 @@ class SimplesitemapController extends ControllerBase {
    * @return object
    *   Returns an XML response.
    */
-  public function getSitemap($context = Simplesitemap::CONTEXT_DEFAULT, $chunk_id = NULL) {
-    $output = $this->generator->getSitemap($context, $chunk_id);
+  public function getSitemap($context = Simplesitemap::CONTEXT_DEFAULT, $delta = NULL) {
+    $output = $this->generator->getSitemap($context, $delta);
     if (!$output) {
       $this->cacheKillSwitch->trigger();
       throw new NotFoundHttpException();

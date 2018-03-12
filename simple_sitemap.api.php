@@ -12,7 +12,7 @@
 
 /**
  * Alter the generated link data before the sitemap is saved.
- * This hook gets invoked for every sitemap chunk generated.
+ * This hook gets invoked for every sitemap delta generated.
  *
  * @param array &$links
  *   Array containing multilingual links generated for each path to be indexed.

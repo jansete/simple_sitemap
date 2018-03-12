@@ -80,20 +80,20 @@ function simple_sitemap_schema() {
         'default' => '',
       ],
       'delta' => [
-        'description' => 'Sitemap chunk unique identifier.',
+        'description' => 'Sitemap delta unique identifier.',
         'type' => 'int',
         'size' => 'small',
         'not null' => TRUE,
         'unsigned' => TRUE,
       ],
       'sitemap_string' => [
-        'description' => 'XML sitemap chunk string.',
+        'description' => 'XML sitemap delta string.',
         'type' => 'text',
         'size' => 'big',
         'not null' => TRUE,
       ],
       'sitemap_created' => [
-        'description' => 'Timestamp of sitemap chunk generation.',
+        'description' => 'Timestamp of sitemap delta generation.',
         'type' => 'int',
         'default' => 0,
         'not null' => TRUE,

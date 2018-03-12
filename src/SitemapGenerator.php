@@ -147,14 +147,14 @@ class SitemapGenerator {
   }
 
   /**
-   * Generates and returns the sitemap index for all sitemap chunks.
+   * Generates and returns the sitemap index for all sitemap deltas.
    *
-   * @param array $chunk_info
-   *   Array containing chunk creation timestamps keyed by chunk ID.
+   * @param array $delta_info
+   *   Array containing delta creation timestamps keyed by delta ID.
    *
    * @return string sitemap index
    */
-  public function generateSitemapIndex($context, array $chunk_info) {
+  public function generateSitemapIndex($context, array $delta_info) {
     $this->writer->openMemory();
     $this->writer->setIndent(TRUE);
     $this->writer->startDocument(self::XML_VERSION, self::ENCODING);
@@ -168,11 +168,11 @@ class SitemapGenerator {
     }
 
     // Add sitemap locations to document.
-    foreach ($chunk_info as $chunk_id => $chunk_data) {
+    foreach ($delta_info as $delta => $delta_data) {
       $this->writer->startElement('sitemap');
-      $url = Url::fromRoute('simple_sitemap.chunk', ['chunk_id' => $chunk_id, 'context' => $context])->toString(TRUE);
+      $url = Url::fromRoute('simple_sitemap.delta', ['delta' => $delta, 'context' => $context])->toString(TRUE);
       $this->writer->writeElement('loc', $this->getCustomBaseUrl() . $url->getGeneratedUrl());
-      $this->writer->writeElement('lastmod', date_iso8601($chunk_data->sitemap_created));
+      $this->writer->writeElement('lastmod', date_iso8601($delta_data->sitemap_created));
       $this->writer->endElement();
     }
 
@@ -191,13 +191,13 @@ class SitemapGenerator {
   }
 
   /**
-   * Generates and returns a sitemap chunk.
+   * Generates and returns a sitemap delta.
    *
    * @param array $links
    *   All links with their multilingual versions and settings.
    *
    * @return string
-   *   Sitemap chunk
+   *   Sitemap delta
    */
   protected function generateSitemapChunk(array $links) {
     $this->writer->openMemory();
