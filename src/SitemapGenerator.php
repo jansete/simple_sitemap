@@ -6,6 +6,7 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Extension\ModuleHandler;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Component\Datetime\Time;
+use Drupal\Core\Url;
 
 /**
  * Class SitemapGenerator
@@ -169,8 +170,8 @@ class SitemapGenerator {
     // Add sitemap locations to document.
     foreach ($chunk_info as $chunk_id => $chunk_data) {
       $this->writer->startElement('sitemap');
-      // @todo Url::fromRoute()->toString pero absolute a FALSE
-      $this->writer->writeElement('loc', $this->getCustomBaseUrl() . '/sitemaps/' . $context . '/' . $chunk_id . '/' . 'sitemap.xml');
+      $url = Url::fromRoute('simple_sitemap.chunk', ['chunk_id' => $chunk_id, 'context' => $context])->toString(TRUE);
+      $this->writer->writeElement('loc', $this->getCustomBaseUrl() . $url->getGeneratedUrl());
       $this->writer->writeElement('lastmod', date_iso8601($chunk_data->sitemap_created));
       $this->writer->endElement();
     }
