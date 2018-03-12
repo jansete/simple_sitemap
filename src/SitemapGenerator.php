@@ -137,7 +137,7 @@ class SitemapGenerator {
       'delta' => $remove_sitemap ? self::FIRST_CHUNK_INDEX
         : $this->db->query('SELECT MAX(delta) FROM {simple_sitemap} WHERE context = :context', [':context' => $context])
           ->fetchField() + 1,
-      'sitemap_string' => $this->generateSitemapChunk($links),
+      'sitemap_string' => $this->generateSitemapDelta($links),
       'sitemap_created' => $this->time->getRequestTime(),
     ];
     if ($remove_sitemap) {
@@ -199,7 +199,7 @@ class SitemapGenerator {
    * @return string
    *   Sitemap delta
    */
-  protected function generateSitemapChunk(array $links) {
+  protected function generateSitemapDelta(array $links) {
     $this->writer->openMemory();
     $this->writer->setIndent(TRUE);
     $this->writer->startDocument(self::XML_VERSION, self::ENCODING);

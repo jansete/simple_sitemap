@@ -196,13 +196,13 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     $this->context['results'][$context]['generate'] = $results;
   }
 
-  protected function getChunkCount($context) {
+  protected function getDeltaCount($context) {
     return !empty($this->context['results'][$context]['delta_count'])
       ? $this->context['results'][$context]['delta_count']
       : 0;
   }
 
-  protected function setChunkCount($context, $delta_count) {
+  protected function setDeltaCount($context, $delta_count) {
     $this->context['results'][$context]['delta_count'] = $delta_count;
   }
 
@@ -324,7 +324,7 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     $contexts = \Drupal::service('simple_sitemap.generator')->getSitemapContexts();
     foreach ($contexts as $context => $context_info) {
       $this->setBatchResults($context, $this->getBatchResults($context));
-      $this->setChunkCount($context, $this->getChunkCount($context));
+      $this->setDeltaCount($context, $this->getDeltaCount($context));
       $this->setProcessedElementsByContext($context, $this->getProcessedElementsByContext($context));
     }
     $this->setProcessedElements($this->getProcessedElements());
@@ -366,10 +366,10 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
           // Generate sitemap.
           $this->sitemapGenerator
             ->setSettings(['excluded_languages' => $this->batchSettings['excluded_languages']])
-            ->generateSitemap($context, $delta_links, empty($this->getChunkCount($context)));
+            ->generateSitemap($context, $delta_links, empty($this->getDeltaCount($context)));
 
           // Update delta count info.
-          $this->setChunkCount($context, empty($this->getChunkCount($context)) ? 1 : ($this->getChunkCount($context) + 1));
+          $this->setDeltaCount($context, empty($this->getDeltaCount($context)) ? 1 : ($this->getDeltaCount($context) + 1));
 
           // Remove links from result array that have been generated.
           $this->setBatchResults($context, array_slice($this->getBatchResults($context), count($delta_links)));

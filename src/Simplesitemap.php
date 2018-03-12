@@ -178,7 +178,7 @@ class Simplesitemap {
    *   if sitemap is not retrievable from the database.
    */
   public function getSitemap($context = Simplesitemap::CONTEXT_DEFAULT, $delta = NULL) {
-    $delta_info = $this->fetchSitemapChunkInfo($context);
+    $delta_info = $this->fetchSitemapDeltaInfo($context);
 
     if (NULL === $delta || !isset($delta_info[$delta])) {
 
@@ -190,14 +190,14 @@ class Simplesitemap {
         // Return sitemap if there is only one delta.
         return count($delta_info) === 1
         && isset($delta_info[SitemapGenerator::FIRST_CHUNK_INDEX])
-          ? $this->fetchSitemapChunk($context, SitemapGenerator::FIRST_CHUNK_INDEX)
+          ? $this->fetchSitemapDelta($context, SitemapGenerator::FIRST_CHUNK_INDEX)
             ->sitemap_string
           : FALSE;
       }
     }
     else {
       // Return specific sitemap delta.
-      return $this->fetchSitemapChunk($context, $delta)->sitemap_string;
+      return $this->fetchSitemapDelta($context, $delta)->sitemap_string;
     }
   }
 
@@ -207,7 +207,7 @@ class Simplesitemap {
    * @return array
    *   An array containing delta creation timestamps keyed by delta ID.
    */
-  protected function fetchSitemapChunkInfo($context) {
+  protected function fetchSitemapDeltaInfo($context) {
     return $this->db->query('SELECT delta, sitemap_created FROM {simple_sitemap} WHERE context = :context',
       [':context' => $context])->fetchAllAssoc('delta');
   }
@@ -221,7 +221,7 @@ class Simplesitemap {
    * @return object
    *   A sitemap delta object.
    */
-  protected function fetchSitemapChunk($context, $delta) {
+  protected function fetchSitemapDelta($context, $delta) {
     return $this->db->query('SELECT * FROM {simple_sitemap} WHERE context = :context AND delta = :delta',
       [':context' => $context, ':delta' => $delta])->fetchObject();
   }
@@ -298,7 +298,7 @@ class Simplesitemap {
    *   Formatted timestamp of last sitemap generation, otherwise FALSE.
    */
   public function getGeneratedAgo() {
-    $deltas = $this->fetchSitemapChunkInfo();
+    $deltas = $this->fetchSitemapDeltaInfo();
     if (isset($deltas[SitemapGenerator::FIRST_CHUNK_INDEX]->sitemap_created)) {
       return $this->dateFormatter
         ->formatInterval($this->time->getRequestTime() - $deltas[SitemapGenerator::FIRST_CHUNK_INDEX]
