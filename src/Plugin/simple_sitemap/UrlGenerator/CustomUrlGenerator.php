@@ -2,8 +2,8 @@
 
 namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
 
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Url;
-use Drupal\simple_sitemap\Annotation\UrlGenerator;
 use Drupal\simple_sitemap\EntityHelper;
 use Drupal\simple_sitemap\Logger;
 use Drupal\simple_sitemap\Simplesitemap;
@@ -32,7 +32,6 @@ class CustomUrlGenerator extends UrlGeneratorBase {
 
   const PATH_DOES_NOT_EXIST_OR_NO_ACCESS_MESSAGE = 'The custom path @path has been omitted from the XML sitemap as it either does not exist, or it is not accessible to anonymous users. You can review custom paths <a href="@custom_paths_url">here</a>.';
 
-
   /**
    * @var \Drupal\Core\Path\PathValidator
    */
@@ -45,16 +44,20 @@ class CustomUrlGenerator extends UrlGeneratorBase {
 
   /**
    * CustomUrlGenerator constructor.
+   *
    * @param array $configuration
-   * @param string $plugin_id
-   * @param mixed $plugin_definition
-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   * @param \Drupal\simple_sitemap\Logger $logger
-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
-   * @param \Drupal\Core\Path\PathValidator $path_validator
+   * @param $plugin_id
+   * @param $plugin_definition
+   * @param Simplesitemap $generator
+   * @param SitemapGenerator $sitemap_generator
+   * @param LanguageManagerInterface $language_manager
+   * @param EntityTypeManagerInterface $entity_type_manager
+   * @param Logger $logger
+   * @param EntityHelper $entityHelper
+   * @param ModuleHandlerInterface $module_handler
+   * @param PathValidator $path_validator
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
    */
   public function __construct(
     array $configuration,
@@ -66,6 +69,7 @@ class CustomUrlGenerator extends UrlGeneratorBase {
     EntityTypeManagerInterface $entity_type_manager,
     Logger $logger,
     EntityHelper $entityHelper,
+    ModuleHandlerInterface $module_handler,
     PathValidator $path_validator) {
     parent::__construct(
       $configuration,
@@ -76,7 +80,8 @@ class CustomUrlGenerator extends UrlGeneratorBase {
       $language_manager,
       $entity_type_manager,
       $logger,
-      $entityHelper
+      $entityHelper,
+      $module_handler
     );
     $this->pathValidator = $path_validator;
   }
@@ -99,6 +104,7 @@ class CustomUrlGenerator extends UrlGeneratorBase {
       $container->get('entity_type.manager'),
       $container->get('simple_sitemap.logger'),
       $container->get('simple_sitemap.entity_helper'),
+      $container->get('module_handler'),
       $container->get('path.validator')
     );
   }
@@ -109,9 +115,8 @@ class CustomUrlGenerator extends UrlGeneratorBase {
   public function getDataSets($context) {
     $this->includeImages = $this->generator->getSetting('custom_links_include_images', FALSE);
     $custom_links = $this->generator->getCustomLinks();
-    // filtrar por el contexto actual
     foreach ($custom_links as $key => $link) {
-      if ($link['meta']['context'] !== $context && $link['meta']['context'] !== 'always') {
+      if ($link['meta']['context'] !== $context && $link['meta']['context'] !== Simplesitemap::CONTEXT_DEFAULT) {
         unset($custom_links[$key]);
       }
     }

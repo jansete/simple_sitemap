@@ -2,9 +2,9 @@
 
 namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
 
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGeneratorPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Drupal\Component\Utility\Html;
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Url;
 use Drupal\simple_sitemap\EntityHelper;
@@ -80,16 +80,25 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   protected $entityHelper;
 
   /**
+   * @var  \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected $moduleHandler;
+
+  /**
    * UrlGeneratorBase constructor.
+   *
    * @param array $configuration
-   * @param string $plugin_id
-   * @param mixed $plugin_definition
-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   * @param \Drupal\simple_sitemap\Logger $logger
-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
+   * @param $plugin_id
+   * @param $plugin_definition
+   * @param Simplesitemap $generator
+   * @param SitemapGenerator $sitemap_generator
+   * @param LanguageManagerInterface $language_manager
+   * @param EntityTypeManagerInterface $entity_type_manager
+   * @param Logger $logger
+   * @param EntityHelper $entityHelper
+   * @param ModuleHandlerInterface $module_handler
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
    */
   public function __construct(
     array $configuration,
@@ -100,7 +109,8 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     LanguageManagerInterface $language_manager,
     EntityTypeManagerInterface $entity_type_manager,
     Logger $logger,
-    EntityHelper $entityHelper
+    EntityHelper $entityHelper,
+    ModuleHandlerInterface $module_handler
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->generator = $generator;
@@ -111,6 +121,7 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     $this->entityTypeManager = $entity_type_manager;
     $this->logger = $logger;
     $this->entityHelper = $entityHelper;
+    $this->moduleHandler = $module_handler;
     $this->anonUser = $this->entityTypeManager->getStorage('user')
       ->load(self::ANONYMOUS_USER_ID);
   }
@@ -128,7 +139,8 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
       $container->get('language_manager'),
       $container->get('entity_type.manager'),
       $container->get('simple_sitemap.logger'),
-      $container->get('simple_sitemap.entity_helper')
+      $container->get('simple_sitemap.entity_helper'),
+      $container->get('module_handler')
     );
   }
 

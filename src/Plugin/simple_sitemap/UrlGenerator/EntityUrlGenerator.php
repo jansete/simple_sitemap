@@ -2,6 +2,7 @@
 
 namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
 
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\simple_sitemap\EntityHelper;
 use Drupal\simple_sitemap\Logger;
 use Drupal\simple_sitemap\Simplesitemap;
@@ -33,17 +34,21 @@ class EntityUrlGenerator extends UrlGeneratorBase {
   protected $urlGeneratorManager;
 
   /**
-   * EntityMenuLinkContentUrlGenerator constructor.
+   * EntityUrlGenerator constructor.
+   *
    * @param array $configuration
-   * @param string $plugin_id
-   * @param mixed $plugin_definition
-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   * @param \Drupal\simple_sitemap\Logger $logger
-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
-   * @param \Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator\UrlGeneratorManager $url_generator_manager
+   * @param $plugin_id
+   * @param $plugin_definition
+   * @param Simplesitemap $generator
+   * @param SitemapGenerator $sitemap_generator
+   * @param LanguageManagerInterface $language_manager
+   * @param EntityTypeManagerInterface $entity_type_manager
+   * @param Logger $logger
+   * @param EntityHelper $entityHelper
+   * @param ModuleHandlerInterface $module_handler
+   * @param UrlGeneratorManager $url_generator_manager
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
    */
   public function __construct(
     array $configuration,
@@ -55,6 +60,7 @@ class EntityUrlGenerator extends UrlGeneratorBase {
     EntityTypeManagerInterface $entity_type_manager,
     Logger $logger,
     EntityHelper $entityHelper,
+    ModuleHandlerInterface $module_handler,
     UrlGeneratorManager $url_generator_manager
   ) {
     parent::__construct(
@@ -66,7 +72,8 @@ class EntityUrlGenerator extends UrlGeneratorBase {
       $language_manager,
       $entity_type_manager,
       $logger,
-      $entityHelper
+      $entityHelper,
+      $module_handler
     );
     $this->urlGeneratorManager = $url_generator_manager;
   }
@@ -89,6 +96,7 @@ class EntityUrlGenerator extends UrlGeneratorBase {
       $container->get('entity_type.manager'),
       $container->get('simple_sitemap.logger'),
       $container->get('simple_sitemap.entity_helper'),
+      $container->get('module_handler'),
       $container->get('plugin.manager.simple_sitemap.url_generator')
     );
   }
@@ -101,7 +109,7 @@ class EntityUrlGenerator extends UrlGeneratorBase {
     $sitemap_entity_types = $this->entityHelper->getSupportedEntityTypes();
     $bundle_settings = $this->generator->getBundleSettings($context);
 
-    \Drupal::service('module_handler')->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
+    $this->moduleHandler->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
 
     if (!empty($bundle_settings)) {
       foreach ($bundle_settings as $entity_type_name => $bundles) {

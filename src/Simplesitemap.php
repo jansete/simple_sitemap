@@ -11,7 +11,7 @@ use Drupal\Component\Datetime\Time;
 use Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator\UrlGeneratorManager;
 
 /**
- * Class Simplesitemap
+ * Class Simplesitemap.
  * @package Drupal\simple_sitemap
  */
 class Simplesitemap {
@@ -193,8 +193,8 @@ class Simplesitemap {
       else {
         // Return sitemap if there is only one delta.
         return count($delta_info) === 1
-        && isset($delta_info[SitemapGenerator::FIRST_CHUNK_INDEX])
-          ? $this->fetchSitemapDelta($context, SitemapGenerator::FIRST_CHUNK_INDEX)
+        && isset($delta_info[SitemapGenerator::FIRST_DELTA_INDEX])
+          ? $this->fetchSitemapDelta($context, SitemapGenerator::FIRST_DELTA_INDEX)
             ->sitemap_string
           : FALSE;
       }
@@ -306,9 +306,9 @@ class Simplesitemap {
    */
   public function getGeneratedAgo() {
     $deltas = $this->fetchSitemapDeltaInfo();
-    if (isset($deltas[SitemapGenerator::FIRST_CHUNK_INDEX]->sitemap_created)) {
+    if (isset($deltas[SitemapGenerator::FIRST_DELTA_INDEX]->sitemap_created)) {
       return $this->dateFormatter
-        ->formatInterval($this->time->getRequestTime() - $deltas[SitemapGenerator::FIRST_CHUNK_INDEX]
+        ->formatInterval($this->time->getRequestTime() - $deltas[SitemapGenerator::FIRST_DELTA_INDEX]
             ->sitemap_created);
     }
     return FALSE;

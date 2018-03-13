@@ -16,7 +16,6 @@ simple_sitemap.delta_fallback:
   path: '/sitemaps/{context}/sitemap.xml'
   defaults:
     _controller: '\Drupal\simple_sitemap\Controller\SimplesitemapController::getSitemap'
-#    context: 'default'
   requirements:
     _access: 'TRUE'
 
@@ -24,7 +23,6 @@ simple_sitemap.delta:
   path: '/sitemaps/{context}/{delta}/sitemap.xml'
   defaults:
     _controller: '\Drupal\simple_sitemap\Controller\SimplesitemapController::getSitemap'
-#    context: 'default'
   requirements:
     _access: 'TRUE'
 
