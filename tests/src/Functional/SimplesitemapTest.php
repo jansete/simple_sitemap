@@ -209,6 +209,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
     $this->generator->setBundleSettings('default','node', 'page', ['index' => TRUE])
       ->addCustomLink('/node/1')
       ->saveSetting('remove_duplicates', TRUE)
+      ->saveSetting('remove_duplicates_by_context', FALSE)
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
@@ -313,7 +314,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
-    $this->assertSession()->responseContains('http://base_url_test/sitemaps/1/sitemap.xml');
+    $this->assertSession()->responseContains('http://base_url_test/sitemaps/default/1/sitemap.xml');
   }
 
   /**

@@ -1,0 +1,2422 @@
+diff --git a/config/install/simple_sitemap.custom.yml b/config/install/simple_sitemap.custom.yml
+index b74e96a..a06ea25 100644
+--- a/config/install/simple_sitemap.custom.yml
++++ b/config/install/simple_sitemap.custom.yml
+@@ -3,3 +3,4 @@ links:
+     path: '/'
+     priority: '1.0'
+     changefreq: 'daily'
++    context: 'default'
+\ No newline at end of file
+diff --git a/config/install/simple_sitemap.settings.yml b/config/install/simple_sitemap.settings.yml
+index 9b5a14c..93865fe 100644
+--- a/config/install/simple_sitemap.settings.yml
++++ b/config/install/simple_sitemap.settings.yml
+@@ -1,7 +1,8 @@
+ max_links: 2000
+ cron_generate: true
+ cron_generate_interval: 0
+-remove_duplicates: true
++remove_duplicates: false
++remove_duplicates_by_context: true
+ skip_untranslated: false
+ batch_process_limit: 1500
+ base_url: ''
+diff --git a/config/schema/simple_sitemap.schema.yml b/config/schema/simple_sitemap.schema.yml
+index 4ec20d9..a650be4 100644
+--- a/config/schema/simple_sitemap.schema.yml
++++ b/config/schema/simple_sitemap.schema.yml
+@@ -13,6 +13,9 @@ simple_sitemap.settings:
+     remove_duplicates:
+       label: 'Remove duplicates'
+       type: boolean
++    remove_duplicates_by_context:
++      label: 'Remove duplicates by context'
++      type: boolean
+     skip_untranslated:
+       label: 'Skip untranslated'
+       type: boolean
+@@ -52,6 +55,9 @@ simple_sitemap.bundle_settings.*.*:
+     include_images:
+       label: 'Include images'
+       type: integer
++    context:
++      label: 'Context'
++      type: string
+ 
+ simple_sitemap.custom:
+   label: 'Custom links'
+@@ -72,3 +78,6 @@ simple_sitemap.custom:
+           changefreq:
+             label: 'Change frequency'
+             type: string
++          context:
++            label: 'Context'
++            type: string
+\ No newline at end of file
+diff --git a/simple_sitemap.api.php b/simple_sitemap.api.php
+index fa94cba..a2e0249 100644
+--- a/simple_sitemap.api.php
++++ b/simple_sitemap.api.php
+@@ -12,7 +12,7 @@
+ 
+ /**
+  * Alter the generated link data before the sitemap is saved.
+- * This hook gets invoked for every sitemap chunk generated.
++ * This hook gets invoked for every sitemap delta generated.
+  *
+  * @param array &$links
+  *   Array containing multilingual links generated for each path to be indexed.
+@@ -59,6 +59,8 @@ function hook_simple_sitemap_arbitrary_links_alter(array &$arbitrary_links) {
+       ['path' => 'http://path-to-image.png']
+     ],
+ 
++    'context' => 'default',
++
+     // Add alternate URLs for every language of a multilingual site.
+     // Not necessary for monolingual sites.
+     'alternate_urls' => [
+@@ -107,6 +109,36 @@ function hook_simple_sitemap_url_generators_alter(array &$generators) {
+   $generators['arbitrary']['weight'] = -100;
+ }
+ 
++/**
++* Perform alterations before a sitemap is rendered.
++ *
++ * @param array $bundle_settings
++  *   An array, containing the sitemap links and the default configuration.
++ *
++ * @param string $sitemap_context
++*   The sitemap context.
++ */
++function hook_simple_sitemap_bundle_settings_alter(&$bundle_settings, $sitemap_context) {
++  if ($sitemap_context === 'product') {
++    // Example of EntityUrlGenerator
++    // $bundle_settings[$entity_type][$bundle]
++    $bundle_settings['node']['article'] = [
++      'index' => 1,
++      'priority' => 0.5,
++      'changefreq' => "",
++      'include_images' => 0,
++    ];
++    // Example of EntityMenuLinkContentUrlGenerator
++    // $bundle_settings['menu_link_content'][$menu_name]
++    $bundle_settings['menu_link_content']['main'] = [
++      'index' => 1,
++      'priority' => 0.5,
++      'changefreq' => "",
++      'include_images' => 0,
++    ];
++  }
++}
++
+ /**
+  * @} End of "addtogroup hooks".
+  */
+diff --git a/simple_sitemap.install b/simple_sitemap.install
+index 82ed92a..4d537cf 100644
+--- a/simple_sitemap.install
++++ b/simple_sitemap.install
+@@ -9,6 +9,7 @@
+  * Implements hook_requirements().
+  *
+  * @param $phase
++ *
+  * @return array
+  */
+ function simple_sitemap_requirements($phase) {
+@@ -47,11 +48,11 @@ function simple_sitemap_requirements($phase) {
+           . ' ' . ($cron_generation
+             ? 'Run cron, or <a href="@generate">regenerate</a> the sitemap manually.'
+             : 'Generation on cron run is disabled. <a href="@generate">Regenerate</a> the sitemap manually.'), [
+-              '@sitemap' => $GLOBALS['base_url'] . '/sitemap.xml',
+-              '@ago' => $generated_ago,
+-              '@generate' => $GLOBALS['base_url'] . '/admin/config/search/simplesitemap'
+-            ]
+-          );
++            '@sitemap' => $GLOBALS['base_url'] . '/sitemap.xml',
++            '@ago' => $generated_ago,
++            '@generate' => $GLOBALS['base_url'] . '/admin/config/search/simplesitemap'
++          ]
++        );
+         $severity = REQUIREMENT_INFO;
+       }
+ 
+@@ -73,28 +74,34 @@ function simple_sitemap_schema() {
+   $schema['simple_sitemap'] = [
+     'description' => 'Holds XML sitemaps as strings for quick retrieval.',
+     'fields' => [
+-      'id' => [
+-        'description' => 'Sitemap chunk unique identifier.',
++      'context' => [
++        'type' => 'varchar',
++        'length' => 50,
++        'not null' => TRUE,
++        'default' => '',
++      ],
++      'delta' => [
++        'description' => 'Sitemap delta unique identifier.',
+         'type' => 'int',
+         'size' => 'small',
+         'not null' => TRUE,
+         'unsigned' => TRUE,
+       ],
+       'sitemap_string' => [
+-        'description' => 'XML sitemap chunk string.',
++        'description' => 'XML sitemap delta string.',
+         'type' => 'text',
+         'size' => 'big',
+         'not null' => TRUE,
+       ],
+       'sitemap_created' => [
+-        'description' => 'Timestamp of sitemap chunk generation.',
++        'description' => 'Timestamp of sitemap delta generation.',
+         'type' => 'int',
+         'default' => 0,
+         'not null' => TRUE,
+         'unsigned' => TRUE,
+       ],
+     ],
+-    'primary key' => ['id'],
++    'primary key' => ['context', 'delta'],
+   ];
+ 
+   $schema['simple_sitemap_entity_overrides'] = [
+@@ -398,3 +405,16 @@ function simple_sitemap_update_8209() {
+ 
+   return t('You may now want to configure your sitemap entities to include images.');
+ }
++
++/**
++ * Adding column for sitemap context and change id for delta in simple_sitemap table.
++ */
++function simple_sitemap_update_8210() {
++  \Drupal::configFactory()
++    ->getEditable('simple_sitemap.settings')
++    ->set('remove_duplicates_by_context', TRUE)
++    ->save();
++  \Drupal::database()->schema()->dropTable('simple_sitemap');
++  $schema = drupal_get_module_schema('simple_sitemap', 'simple_sitemap');
++  \Drupal::database()->schema()->createTable('simple_sitemap', $schema['simple_sitemap']);
++}
+\ No newline at end of file
+diff --git a/simple_sitemap.module b/simple_sitemap.module
+index fc0c7a3..3e296b4 100644
+--- a/simple_sitemap.module
++++ b/simple_sitemap.module
+@@ -10,6 +10,7 @@ use Drupal\Core\Entity\EntityInterface;
+ use Drupal\Core\Routing\RouteMatchInterface;
+ use Drupal\system\MenuInterface;
+ use Drupal\language\ConfigurableLanguageInterface;
++use Drupal\simple_sitemap\Simplesitemap;
+ 
+ /**
+  *Implements hook_help.
+@@ -120,6 +121,7 @@ function simple_sitemap_entity_form_submit($form, FormStateInterface &$form_stat
+ 
+       case 'bundle':
+         $generator->setBundleSettings(
++          Simplesitemap::CONTEXT_DEFAULT,
+           $f->getEntityTypeId(),
+           !empty($f->getBundleName()) ? $f->getBundleName() : $f->getFormEntityId(),
+           $settings
+@@ -128,6 +130,7 @@ function simple_sitemap_entity_form_submit($form, FormStateInterface &$form_stat
+ 
+       case 'instance':
+         $generator->setEntityInstanceSettings(
++          Simplesitemap::CONTEXT_DEFAULT,
+           $f->getEntityTypeId(),
+           !empty($f->getInstanceId()) ? $f->getInstanceId() : $f->getFormEntityId(),
+           $settings
+@@ -234,7 +237,7 @@ function simple_sitemap_delete_bundle_config($entity_type_id, $bundle) {
+    * @var \Drupal\simple_sitemap\Simplesitemap $generator
+    */
+   $generator = \Drupal::service('simple_sitemap.generator');
+-  $deleted_bundle_settings = $generator->getBundleSettings($entity_type_id, $bundle);
++  $deleted_bundle_settings = $generator->getBundleSettings(Simplesitemap::CONTEXT_DEFAULT, $entity_type_id, $bundle);
+   if ($deleted_bundle_settings !== FALSE) {
+ 
+     // Delete bundle settings.
+@@ -257,3 +260,18 @@ function simple_sitemap_robotstxt() {
+     'Sitemap: ' . $GLOBALS['base_url'] . '/sitemap.xml', //todo: Use base URL setting?
+   ];
+ }
++
++
++/**
++ * Implements hook_simplesitemap_context_info().
++ */
++function simple_sitemap_simple_sitemap_context_info() {
++  $context = [];
++
++  $context[Simplesitemap::CONTEXT_DEFAULT] = [
++    'name' => t('Default'),
++    'description' => t('Default sitemap.'),
++  ];
++
++  return $context;
++}
+diff --git a/simple_sitemap.routing.yml b/simple_sitemap.routing.yml
+index 7c1da48..0943e79 100644
+--- a/simple_sitemap.routing.yml
++++ b/simple_sitemap.routing.yml
+@@ -12,15 +12,15 @@ simple_sitemap.sitemaps:
+   requirements:
+     _access: 'TRUE'
+ 
+-simple_sitemap.chunk_fallback:
+-  path: '/sitemaps/{chunk_id}'
++simple_sitemap.delta_fallback:
++  path: '/sitemaps/{context}/sitemap.xml'
+   defaults:
+     _controller: '\Drupal\simple_sitemap\Controller\SimplesitemapController::getSitemap'
+   requirements:
+     _access: 'TRUE'
+ 
+-simple_sitemap.chunk:
+-  path: '/sitemaps/{chunk_id}/sitemap.xml'
++simple_sitemap.delta:
++  path: '/sitemaps/{context}/{delta}/sitemap.xml'
+   defaults:
+     _controller: '\Drupal\simple_sitemap\Controller\SimplesitemapController::getSitemap'
+   requirements:
+diff --git a/simple_sitemap.services.yml b/simple_sitemap.services.yml
+index aee10f9..6932b6d 100644
+--- a/simple_sitemap.services.yml
++++ b/simple_sitemap.services.yml
+@@ -13,6 +13,7 @@ services:
+       - '@datetime.time'
+       - '@simple_sitemap.batch'
+       - '@plugin.manager.simple_sitemap.url_generator'
++      - '@module_handler'
+ 
+   simple_sitemap.sitemap_generator:
+     class: Drupal\simple_sitemap\SitemapGenerator
+diff --git a/src/Annotation/UrlGenerator.php b/src/Annotation/UrlGenerator.php
+index 8194bba..c0d81bb 100644
+--- a/src/Annotation/UrlGenerator.php
++++ b/src/Annotation/UrlGenerator.php
+@@ -9,7 +9,7 @@ use Drupal\Component\Annotation\Plugin;
+  *
+  * @package Drupal\simple_sitemap\Annotation
+  *
+- * @see Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator\UrlGeneratorManager
++ * @see \Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator\UrlGeneratorManager
+  * @see plugin_api
+  *
+  * @Annotation
+diff --git a/src/Batch.php b/src/Batch.php
+index 93e5cea..18038d8 100644
+--- a/src/Batch.php
++++ b/src/Batch.php
+@@ -108,11 +108,12 @@ class Batch {
+    * Adds an operation to the batch.
+    *
+    * @param $plugin_id
++   * @param $context
+    * @param array|null $data_sets
+    */
+-  public function addOperation($plugin_id, $data_sets = NULL) {
++  public function addOperation($plugin_id, $context, $data_sets = NULL) {
+     $this->batch['operations'][] = [
+-      __CLASS__ . '::generate', [$plugin_id, $data_sets, $this->batchSettings],
++      __CLASS__ . '::generate', [$plugin_id, $context, $data_sets, $this->batchSettings],
+     ];
+   }
+ 
+@@ -120,18 +121,19 @@ class Batch {
+    * Batch callback function which generates URLs.
+    *
+    * @param $plugin_id
++   * @param $sitemap_context
+    * @param array|null $data_sets
+    * @param array $batch_settings
+    * @param $context
+    *
+    * @see https://api.drupal.org/api/drupal/core!includes!form.inc/group/batch/8
+    */
+-  public static function generate($plugin_id, $data_sets, array $batch_settings, &$context) {
++  public static function generate($plugin_id, $sitemap_context, $data_sets, array $batch_settings, &$context) {
+     \Drupal::service('plugin.manager.simple_sitemap.url_generator')
+       ->createInstance($plugin_id)
+       ->setContext($context)
+       ->setBatchSettings($batch_settings)
+-      ->generate($data_sets);
++      ->generate($sitemap_context, $data_sets);
+   }
+ 
+   /**
+@@ -145,11 +147,14 @@ class Batch {
+    */
+   public static function finishGeneration($success, $results, $operations) {
+     if ($success) {
+-      $remove_sitemap = empty($results['chunk_count']);
+-      if (!empty($results['generate']) || $remove_sitemap) {
+-        \Drupal::service('simple_sitemap.sitemap_generator')
+-          ->setSettings(['excluded_languages' => \Drupal::service('simple_sitemap.generator')->getSetting('excluded_languages', [])])
+-          ->generateSitemap(!empty($results['generate']) ? $results['generate'] : [], $remove_sitemap);
++      $contexts = \Drupal::service('simple_sitemap.generator')->getSitemapContexts();
++      foreach ($contexts as $context => $context_info) {
++        $remove_sitemap = empty($results[$context]['delta_count']);
++        if (!empty($results[$context]['generate']) || $remove_sitemap) {
++          \Drupal::service('simple_sitemap.sitemap_generator')
++            ->setSettings(['excluded_languages' => \Drupal::service('simple_sitemap.generator')->getSetting('excluded_languages', [])])
++            ->generateSitemap($context, !empty($results[$context]['generate']) ? $results[$context]['generate'] : [], $remove_sitemap);
++        }
+       }
+       Cache::invalidateTags(['simple_sitemap']);
+       \Drupal::service('simple_sitemap.logger')->m(self::REGENERATION_FINISHED_MESSAGE,
+diff --git a/src/Controller/SimplesitemapController.php b/src/Controller/SimplesitemapController.php
+index 0e6d371..c89aafc 100644
+--- a/src/Controller/SimplesitemapController.php
++++ b/src/Controller/SimplesitemapController.php
+@@ -11,7 +11,7 @@ use Drupal\simple_sitemap\Simplesitemap;
+ use Drupal\Core\PageCache\ResponsePolicy\KillSwitch;
+ 
+ /**
+- * Class SimplesitemapController
++ * Class SimplesitemapController.
+  * @package Drupal\simple_sitemap\Controller
+  */
+ class SimplesitemapController extends ControllerBase {
+@@ -47,11 +47,11 @@ class SimplesitemapController extends ControllerBase {
+   }
+ 
+   /**
+-   * Returns the whole sitemap, a requested sitemap chunk, or the sitemap index file.
++   * Returns the whole sitemap, a requested sitemap delta, or the sitemap index file.
+    * Caches the response in case of expected output, prevents caching otherwise.
+    *
+-   * @param int $chunk_id
+-   *   Optional ID of the sitemap chunk. If none provided, the first chunk or
++   * @param int $delta
++   *   Optional ID of the sitemap delta. If none provided, the first delta or
+    *   the sitemap index is fetched.
+    *
+    * @throws NotFoundHttpException
+@@ -59,8 +59,8 @@ class SimplesitemapController extends ControllerBase {
+    * @return object
+    *   Returns an XML response.
+    */
+-  public function getSitemap($chunk_id = NULL) {
+-    $output = $this->generator->getSitemap($chunk_id);
++  public function getSitemap($context = Simplesitemap::CONTEXT_DEFAULT, $delta = NULL) {
++    $output = $this->generator->getSitemap($context, $delta);
+     if (!$output) {
+       $this->cacheKillSwitch->trigger();
+       throw new NotFoundHttpException();
+diff --git a/src/Form/FormHelper.php b/src/Form/FormHelper.php
+index 12f07e4..1abeca1 100644
+--- a/src/Form/FormHelper.php
++++ b/src/Form/FormHelper.php
+@@ -9,14 +9,25 @@ use Drupal\simple_sitemap\Simplesitemap;
+ use Drupal\Core\Session\AccountProxyInterface;
+ 
+ /**
+- * Class FormHelper
++ * Class FormHelper.
+  * @package Drupal\simple_sitemap\Form
+  */
+ class FormHelper {
+   use StringTranslationTrait;
+ 
++  /**
++   *  Default priority for links.
++   */
+   const PRIORITY_DEFAULT = 0.5;
++
++  /**
++   *  Max value of priority.
++   */
+   const PRIORITY_HIGHEST = 10;
++
++  /**
++   *  Divider used to format priority value.
++   */
+   const PRIORITY_DIVIDER = 10;
+ 
+   /**
+@@ -59,6 +70,9 @@ class FormHelper {
+    */
+   protected $instanceId;
+ 
++  /**
++   * @var array
++   */
+   protected static $allowedFormOperations = [
+     'default',
+     'edit',
+@@ -66,6 +80,9 @@ class FormHelper {
+     'register',
+   ];
+ 
++  /**
++   * @var array
++   */
+   protected static $changefreqValues = [
+     'always',
+     'hourly',
+@@ -76,6 +93,9 @@ class FormHelper {
+     'never',
+   ];
+ 
++  /**
++   * @var array
++   */
+   protected static $valuesToCheck = [
+     'simple_sitemap_index_content',
+     'simple_sitemap_priority',
+@@ -198,7 +218,7 @@ class FormHelper {
+     // Do not alter the form, if sitemap is disabled for the entity type of this
+     // entity instance.
+     elseif ($this->getEntityCategory() === 'instance'
+-      && !$this->generator->bundleIsIndexed($this->getEntityTypeId(), $this->getBundleName())) {
++      && !$this->generator->bundleIsIndexed(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getBundleName())) {
+       return FALSE;
+     }
+ 
+@@ -229,13 +249,13 @@ class FormHelper {
+     $prefix = $multiple ? $this->getEntityTypeId() . '_' : '';
+ 
+     if ($this->getEntityCategory() === 'instance') {
+-      $bundle_settings = $this->generator->getBundleSettings($this->getEntityTypeId(), $this->getBundleName());
++      $bundle_settings = $this->generator->getBundleSettings(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getBundleName());
+       $settings = NULL !== $this->getInstanceId()
+-        ? $this->generator->getEntityInstanceSettings($this->getEntityTypeId(), $this->getInstanceId())
++        ? $this->generator->getEntityInstanceSettings(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getInstanceId())
+         : $bundle_settings;
+     }
+     else {
+-      $settings = $this->generator->getBundleSettings($this->getEntityTypeId(), $this->getBundleName());
++      $settings = $this->generator->getBundleSettings(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getBundleName());
+     }
+     Simplesitemap::supplementDefaultSettings('entity', $settings, ['index' => 0]);
+ 
+diff --git a/src/Form/SimplesitemapCustomLinksForm.php b/src/Form/SimplesitemapCustomLinksForm.php
+index da6a091..428f2fa 100644
+--- a/src/Form/SimplesitemapCustomLinksForm.php
++++ b/src/Form/SimplesitemapCustomLinksForm.php
+@@ -3,9 +3,10 @@
+ namespace Drupal\simple_sitemap\Form;
+ 
+ use Drupal\Core\Form\FormStateInterface;
++use Drupal\simple_sitemap\Simplesitemap;
+ 
+ /**
+- * Class SimplesitemapCustomLinksForm
++ * Class SimplesitemapCustomLinksForm.
+  * @package Drupal\simple_sitemap\Form
+  */
+ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
+@@ -33,7 +34,7 @@ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
+       '#type' => 'textarea',
+       '#title' => $this->t('Relative Drupal paths'),
+       '#default_value' => $this->customLinksToString($this->generator->getCustomLinks(FALSE)),
+-      '#description' => $this->t("Please specify drupal internal (relative) paths, one per line. Do not forget to prepend the paths with a '/'.<br/>Optionally link priority <em>(0.0 - 1.0)</em> can be added by appending it after a space.<br/> Optionally link change frequency <em>(always / hourly / daily / weekly / monthly / yearly / never)</em> can be added by appending it after a space.<br/><br/><strong>Examples:</strong><br/><em>/ 1.0 daily</em> -> home page with the highest priority and daily change frequency<br/><em>/contact</em> -> contact page with the default priority and no change frequency information"),
++      '#description' => $this->t("Please specify drupal internal (relative) paths, one per line. Do not forget to prepend the paths with a '/'.<br/>Optionally link priority <em>(0.0 - 1.0)</em> can be added by appending it after a space.<br/> Optionally link change frequency <em>(always / hourly / daily / weekly / monthly / yearly / never)</em> can be added by appending it after a space.<br/>Optionally link change context <em>(default / [custom context defined in module @see hook_simple_sitemap_context_info()])</em> can be added by appending it after a space.<br/><br/><strong>Examples:</strong><br/><em>/ 1.0 daily</em> -> home page with the highest priority and daily change frequency and context default<br/><em>/contact</em> -> contact page with the default priority and no change frequency information and context default<br/><em>/about_us 0.5 daily custom_context</em> -> custom about us page with priority 0.5 , daily change frequency and context custom_context" ),
+     ];
+ 
+     $form['simple_sitemap_custom']['include_images'] = [
+@@ -140,6 +141,9 @@ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
+           }
+         }
+       }
++      $custom_links[$i]['context'] = empty($link_settings[3])
++        ? Simplesitemap::CONTEXT_DEFAULT
++        : $link_settings[3];
+     }
+     return $custom_links;
+   }
+@@ -158,6 +162,9 @@ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
+       $setting_string .= isset($custom_link['changefreq'])
+         ? ' ' . $custom_link['changefreq']
+         : '';
++      $setting_string .= isset($custom_link['context']) && $custom_link['context'] !== Simplesitemap::CONTEXT_DEFAULT
++        ? ' ' . $custom_link['context']
++        : '';
+       $setting_string .= "\r\n";
+     }
+     return $setting_string;
+diff --git a/src/Form/SimplesitemapEntitiesForm.php b/src/Form/SimplesitemapEntitiesForm.php
+index d9ecddd..483cd32 100644
+--- a/src/Form/SimplesitemapEntitiesForm.php
++++ b/src/Form/SimplesitemapEntitiesForm.php
+@@ -3,9 +3,10 @@
+ namespace Drupal\simple_sitemap\Form;
+ 
+ use Drupal\Core\Form\FormStateInterface;
++use Drupal\simple_sitemap\Simplesitemap;
+ 
+ /**
+- * Class SimplesitemapEntitiesForm
++ * Class SimplesitemapEntitiesForm.
+  * @package Drupal\simple_sitemap\Form
+  */
+ class SimplesitemapEntitiesForm extends SimplesitemapFormBase {
+@@ -41,7 +42,7 @@ class SimplesitemapEntitiesForm extends SimplesitemapFormBase {
+ 
+     $this->formHelper->processForm($form_state);
+ 
+-    $bundle_settings = $this->generator->getBundleSettings();
++    $bundle_settings = $this->generator->getBundleSettings(Simplesitemap::CONTEXT_DEFAULT);
+ 
+     foreach ($entity_type_labels as $entity_type_id => $entity_type_label) {
+ ;
+@@ -118,7 +119,7 @@ class SimplesitemapEntitiesForm extends SimplesitemapFormBase {
+         if ($value) {
+           $this->generator->enableEntityType($entity_type_id);
+           if ($this->entityHelper->entityTypeIsAtomic($entity_type_id)) {
+-            $this->generator->setBundleSettings($entity_type_id, $entity_type_id, [
++            $this->generator->setBundleSettings(Simplesitemap::CONTEXT_DEFAULT, $entity_type_id, $entity_type_id, [
+               'index' => TRUE,
+               'priority' => $values[$entity_type_id . '_simple_sitemap_priority'],
+               'changefreq' => $values[$entity_type_id . '_simple_sitemap_changefreq'],
+diff --git a/src/Form/SimplesitemapFormBase.php b/src/Form/SimplesitemapFormBase.php
+index d229bc9..7624bd5 100644
+--- a/src/Form/SimplesitemapFormBase.php
++++ b/src/Form/SimplesitemapFormBase.php
+@@ -10,7 +10,7 @@ use Drupal\Core\Path\PathValidator;
+ use Drupal\Core\Language\LanguageManagerInterface;
+ 
+ /**
+- * Class SimplesitemapFormBase
++ * Class SimplesitemapFormBase.
+  * @package Drupal\simple_sitemap\Form
+  */
+ abstract class SimplesitemapFormBase extends ConfigFormBase {
+diff --git a/src/Form/SimplesitemapSettingsForm.php b/src/Form/SimplesitemapSettingsForm.php
+index f9291f6..c29ed9b 100644
+--- a/src/Form/SimplesitemapSettingsForm.php
++++ b/src/Form/SimplesitemapSettingsForm.php
+@@ -95,7 +95,13 @@ class SimplesitemapSettingsForm extends SimplesitemapFormBase {
+       '#type' => 'checkbox',
+       '#title' => $this->t('Exclude duplicate links'),
+       '#description' => $this->t('Uncheck this to significantly speed up the sitemap generation process on a huge site (more than 20 000 indexed entities).'),
+-      '#default_value' => $this->generator->getSetting('remove_duplicates', TRUE),
++      '#default_value' => $this->generator->getSetting('remove_duplicates', FALSE),
++    ];
++
++    $form['simple_sitemap_settings']['advanced']['remove_duplicates_by_context'] = [
++      '#type' => 'checkbox',
++      '#title' => $this->t('Exclude duplicate links by context'),
++      '#default_value' => $this->generator->getSetting('remove_duplicates_by_context', TRUE),
+     ];
+ 
+     $form['simple_sitemap_settings']['advanced']['max_links'] = [
+@@ -169,6 +175,7 @@ class SimplesitemapSettingsForm extends SimplesitemapFormBase {
+                'cron_generate',
+                'cron_generate_interval',
+                'remove_duplicates',
++               'remove_duplicates_by_context',
+                'skip_untranslated',
+                'batch_process_limit',
+                'base_url',] as $setting_name) {
+diff --git a/src/Plugin/simple_sitemap/SimplesitemapPluginBase.php b/src/Plugin/simple_sitemap/SimplesitemapPluginBase.php
+index 8f5142d..07516e5 100644
+--- a/src/Plugin/simple_sitemap/SimplesitemapPluginBase.php
++++ b/src/Plugin/simple_sitemap/SimplesitemapPluginBase.php
+@@ -13,16 +13,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
+  */
+ abstract class SimplesitemapPluginBase extends PluginBase implements PluginInspectionInterface, ContainerFactoryPluginInterface {
+ 
+-  /**
+-   * SimplesitemapPluginBase constructor.
+-   * @param array $configuration
+-   * @param string $plugin_id
+-   * @param mixed $plugin_definition
+-   */
+-  public function __construct(array $configuration, $plugin_id, $plugin_definition) {
+-    parent::__construct($configuration, $plugin_id, $plugin_definition);
+-  }
+-
+   /**
+    * @param \Symfony\Component\DependencyInjection\ContainerInterface $container
+    * @param array $configuration
+diff --git a/src/Plugin/simple_sitemap/UrlGenerator/ArbitraryUrlGenerator.php b/src/Plugin/simple_sitemap/UrlGenerator/ArbitraryUrlGenerator.php
+index 9f1a430..a6d6d6c 100644
+--- a/src/Plugin/simple_sitemap/UrlGenerator/ArbitraryUrlGenerator.php
++++ b/src/Plugin/simple_sitemap/UrlGenerator/ArbitraryUrlGenerator.php
+@@ -2,13 +2,13 @@
+ 
+ namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
+ 
++use Drupal\Core\Extension\ModuleHandlerInterface;
+ use Drupal\simple_sitemap\EntityHelper;
+ use Drupal\simple_sitemap\Logger;
+ use Drupal\simple_sitemap\Simplesitemap;
+ use Drupal\simple_sitemap\SitemapGenerator;
+ use Drupal\Core\Language\LanguageManagerInterface;
+ use Drupal\Core\Entity\EntityTypeManagerInterface;
+-use Drupal\Core\Extension\ModuleHandler;
+ use Symfony\Component\DependencyInjection\ContainerInterface;
+ 
+ /**
+@@ -27,20 +27,21 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
+  */
+ class ArbitraryUrlGenerator extends UrlGeneratorBase {
+ 
+-  protected $moduleHandler;
+-
+   /**
+    * ArbitraryUrlGenerator constructor.
++   *
+    * @param array $configuration
+-   * @param string $plugin_id
+-   * @param mixed $plugin_definition
+-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
+-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
+-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
+-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+-   * @param \Drupal\simple_sitemap\Logger $logger
+-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
+-   * @param \Drupal\Core\Extension\ModuleHandler $module_handler
++   * @param $plugin_id
++   * @param $plugin_definition
++   * @param Simplesitemap $generator
++   * @param SitemapGenerator $sitemap_generator
++   * @param LanguageManagerInterface $language_manager
++   * @param EntityTypeManagerInterface $entity_type_manager
++   * @param Logger $logger
++   * @param EntityHelper $entityHelper
++   * @param ModuleHandlerInterface $module_handler
++   *
++   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+    */
+   public function __construct(
+     array $configuration,
+@@ -52,7 +53,7 @@ class ArbitraryUrlGenerator extends UrlGeneratorBase {
+     EntityTypeManagerInterface $entity_type_manager,
+     Logger $logger,
+     EntityHelper $entityHelper,
+-    ModuleHandler $module_handler
++    ModuleHandlerInterface $module_handler
+   ) {
+     parent::__construct(
+       $configuration,
+@@ -63,11 +64,14 @@ class ArbitraryUrlGenerator extends UrlGeneratorBase {
+       $language_manager,
+       $entity_type_manager,
+       $logger,
+-      $entityHelper
++      $entityHelper,
++      $module_handler
+     );
+-    $this->moduleHandler = $module_handler;
+   }
+ 
++  /**
++   * {@inheritdoc}
++   */
+   public static function create(
+     ContainerInterface $container,
+     array $configuration,
+@@ -89,18 +93,32 @@ class ArbitraryUrlGenerator extends UrlGeneratorBase {
+ 
+ 
+   /**
+-   * @inheritdoc
++   * {@inheritdoc}
+    */
+-  public function getDataSets() {
++  public function getDataSets($context) {
+     $arbitrary_links = [];
+     $this->moduleHandler->alter('simple_sitemap_arbitrary_links', $arbitrary_links);
++
++    if (!empty($arbitrary_links)) {
++      foreach ($arbitrary_links as $key => $link) {
++        if (empty($link['context'])) {
++          $arbitrary_links[$key]['context'] = Simplesitemap::CONTEXT_DEFAULT;
++        }
++      }
++      foreach ($arbitrary_links as $key => $link) {
++        if ($link['context'] !== $context && $link['context'] !== Simplesitemap::CONTEXT_DEFAULT) {
++          unset($arbitrary_links[$key]);
++        }
++      }
++    }
++
+     return array_values($arbitrary_links);
+   }
+ 
+   /**
+-   * @inheritdoc
++   * {@inheritdoc}
+    */
+-  protected function processDataSet($data_set) {
++  protected function processDataSet($context, $data_set) {
+     return $data_set;
+   }
+ }
+diff --git a/src/Plugin/simple_sitemap/UrlGenerator/CustomUrlGenerator.php b/src/Plugin/simple_sitemap/UrlGenerator/CustomUrlGenerator.php
+index e546238..bc413cd 100644
+--- a/src/Plugin/simple_sitemap/UrlGenerator/CustomUrlGenerator.php
++++ b/src/Plugin/simple_sitemap/UrlGenerator/CustomUrlGenerator.php
+@@ -2,8 +2,8 @@
+ 
+ namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
+ 
++use Drupal\Core\Extension\ModuleHandlerInterface;
+ use Drupal\Core\Url;
+-use Drupal\simple_sitemap\Annotation\UrlGenerator;
+ use Drupal\simple_sitemap\EntityHelper;
+ use Drupal\simple_sitemap\Logger;
+ use Drupal\simple_sitemap\Simplesitemap;
+@@ -32,7 +32,6 @@ class CustomUrlGenerator extends UrlGeneratorBase {
+ 
+   const PATH_DOES_NOT_EXIST_OR_NO_ACCESS_MESSAGE = 'The custom path @path has been omitted from the XML sitemap as it either does not exist, or it is not accessible to anonymous users. You can review custom paths <a href="@custom_paths_url">here</a>.';
+ 
+-
+   /**
+    * @var \Drupal\Core\Path\PathValidator
+    */
+@@ -45,16 +44,20 @@ class CustomUrlGenerator extends UrlGeneratorBase {
+ 
+   /**
+    * CustomUrlGenerator constructor.
++   *
+    * @param array $configuration
+-   * @param string $plugin_id
+-   * @param mixed $plugin_definition
+-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
+-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
+-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
+-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+-   * @param \Drupal\simple_sitemap\Logger $logger
+-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
+-   * @param \Drupal\Core\Path\PathValidator $path_validator
++   * @param $plugin_id
++   * @param $plugin_definition
++   * @param Simplesitemap $generator
++   * @param SitemapGenerator $sitemap_generator
++   * @param LanguageManagerInterface $language_manager
++   * @param EntityTypeManagerInterface $entity_type_manager
++   * @param Logger $logger
++   * @param EntityHelper $entityHelper
++   * @param ModuleHandlerInterface $module_handler
++   * @param PathValidator $path_validator
++   *
++   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+    */
+   public function __construct(
+     array $configuration,
+@@ -66,6 +69,7 @@ class CustomUrlGenerator extends UrlGeneratorBase {
+     EntityTypeManagerInterface $entity_type_manager,
+     Logger $logger,
+     EntityHelper $entityHelper,
++    ModuleHandlerInterface $module_handler,
+     PathValidator $path_validator) {
+     parent::__construct(
+       $configuration,
+@@ -76,11 +80,15 @@ class CustomUrlGenerator extends UrlGeneratorBase {
+       $language_manager,
+       $entity_type_manager,
+       $logger,
+-      $entityHelper
++      $entityHelper,
++      $module_handler
+     );
+     $this->pathValidator = $path_validator;
+   }
+ 
++  /**
++   * {@inheritdoc}
++   */
+   public static function create(
+     ContainerInterface $container,
+     array $configuration,
+@@ -96,23 +104,29 @@ class CustomUrlGenerator extends UrlGeneratorBase {
+       $container->get('entity_type.manager'),
+       $container->get('simple_sitemap.logger'),
+       $container->get('simple_sitemap.entity_helper'),
++      $container->get('module_handler'),
+       $container->get('path.validator')
+     );
+   }
+ 
+   /**
+-   * @inheritdoc
++   * {@inheritdoc}
+    */
+-  public function getDataSets() {
++  public function getDataSets($context) {
+     $this->includeImages = $this->generator->getSetting('custom_links_include_images', FALSE);
+-
+-    return array_values($this->generator->getCustomLinks());
++    $custom_links = $this->generator->getCustomLinks();
++    foreach ($custom_links as $key => $link) {
++      if (!empty($link['context']) && $link['context'] !== $context && $link['context'] !== Simplesitemap::CONTEXT_DEFAULT) {
++        unset($custom_links[$key]);
++      }
++    }
++    return array_values($custom_links);
+   }
+ 
+   /**
+-   * @inheritdoc
++   * {@inheritdoc}
+    */
+-  protected function processDataSet($data_set) {
++  protected function processDataSet($context, $data_set) {
+ 
+       // todo: Change to different function, as this also checks if current user has access. The user however varies depending if process was started from the web interface or via cron/drush. Use getUrlIfValidWithoutAccessCheck()?
+       if (!$this->pathValidator->isValid($data_set['path'])) {
+@@ -127,6 +141,9 @@ class CustomUrlGenerator extends UrlGeneratorBase {
+       $url_object = Url::fromUserInput($data_set['path'], ['absolute' => TRUE]);
+       $path = $url_object->getInternalPath();
+ 
++      if ($this->batchSettings['remove_duplicates_by_context'] && $this->pathProcessedByContext($context, $path)) {
++        return FALSE;
++      }
+       if ($this->batchSettings['remove_duplicates'] && $this->pathProcessed($path)) {
+         return FALSE;
+       }
+@@ -142,9 +159,10 @@ class CustomUrlGenerator extends UrlGeneratorBase {
+         'images' => $this->includeImages && method_exists($entity, 'getEntityTypeId')
+           ? $this->getImages($entity->getEntityTypeId(), $entity->id())
+           : [],
++        'context' => $context,
+         'meta' => [
+           'path' => $path,
+-        ]
++        ],
+       ];
+ 
+       // Additional info useful in hooks.
+diff --git a/src/Plugin/simple_sitemap/UrlGenerator/EntityMenuLinkContentUrlGenerator.php b/src/Plugin/simple_sitemap/UrlGenerator/EntityMenuLinkContentUrlGenerator.php
+index 03864ed..20b9af7 100644
+--- a/src/Plugin/simple_sitemap/UrlGenerator/EntityMenuLinkContentUrlGenerator.php
++++ b/src/Plugin/simple_sitemap/UrlGenerator/EntityMenuLinkContentUrlGenerator.php
+@@ -2,6 +2,7 @@
+ 
+ namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
+ 
++use Drupal\Core\Extension\ModuleHandlerInterface;
+ use Drupal\simple_sitemap\EntityHelper;
+ use Drupal\simple_sitemap\Logger;
+ use Drupal\simple_sitemap\Simplesitemap;
+@@ -37,16 +38,20 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
+ 
+   /**
+    * EntityMenuLinkContentUrlGenerator constructor.
++   *
+    * @param array $configuration
+-   * @param string $plugin_id
+-   * @param mixed $plugin_definition
+-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
+-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
+-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
+-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+-   * @param \Drupal\simple_sitemap\Logger $logger
+-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
+-   * @param \Drupal\Core\Menu\MenuLinkTree $menu_link_tree
++   * @param $plugin_id
++   * @param $plugin_definition
++   * @param Simplesitemap $generator
++   * @param SitemapGenerator $sitemap_generator
++   * @param LanguageManagerInterface $language_manager
++   * @param EntityTypeManagerInterface $entity_type_manager
++   * @param Logger $logger
++   * @param EntityHelper $entityHelper
++   * @param ModuleHandlerInterface $module_handler
++   * @param MenuLinkTree $menu_link_tree
++   *
++   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+    */
+   public function __construct(
+     array $configuration,
+@@ -58,6 +63,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
+     EntityTypeManagerInterface $entity_type_manager,
+     Logger $logger,
+     EntityHelper $entityHelper,
++    ModuleHandlerInterface $module_handler,
+     MenuLinkTree $menu_link_tree
+   ) {
+     parent::__construct(
+@@ -69,11 +75,15 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
+       $language_manager,
+       $entity_type_manager,
+       $logger,
+-      $entityHelper
++      $entityHelper,
++      $module_handler
+     );
+     $this->menuLinkTree = $menu_link_tree;
+   }
+ 
++  /**
++   * {@inheritdoc}
++   */
+   public static function create(
+     ContainerInterface $container,
+     array $configuration,
+@@ -89,16 +99,17 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
+       $container->get('entity_type.manager'),
+       $container->get('simple_sitemap.logger'),
+       $container->get('simple_sitemap.entity_helper'),
++      $container->get('module_handler'),
+       $container->get('menu.link_tree')
+     );
+   }
+ 
+   /**
+-   * @inheritdoc
++   * {@inheritdoc}
+    */
+-  public function getDataSets() {
++  public function getDataSets($context) {
+     $menu_names = [];
+-    $bundle_settings = $this->generator->getBundleSettings();
++    $bundle_settings = $this->generator->getBundleSettings($context);
+     if (!empty($bundle_settings['menu_link_content'])) {
+       foreach ($bundle_settings['menu_link_content'] as $bundle_name => $settings) {
+         if ($settings['index']) {
+@@ -111,9 +122,9 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
+   }
+ 
+   /**
+-   * @inheritdoc
++   * {@inheritdoc}
+    */
+-  protected function processDataSet($link) {
++  protected function processDataSet($context, $link) {
+ 
+     if (!$link->isEnabled()) {
+       return FALSE;
+@@ -129,12 +140,12 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
+     // If not a menu_link_content link, use bundle settings.
+     $meta_data = $link->getMetaData();
+     if (empty($meta_data['entity_id'])) {
+-      $entity_settings = $this->generator->getBundleSettings('menu_link_content', $link->getMenuName());
++      $entity_settings = $this->generator->getBundleSettings($context,'menu_link_content', $link->getMenuName());
+     }
+ 
+     // If menu link is of entity type menu_link_content, take under account its entity override.
+     else {
+-      $entity_settings = $this->generator->getEntityInstanceSettings('menu_link_content', $meta_data['entity_id']);
++      $entity_settings = $this->generator->getEntityInstanceSettings($context,'menu_link_content', $meta_data['entity_id']);
+ 
+       if (empty($entity_settings['index'])) {
+         return FALSE;
+@@ -143,6 +154,9 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
+ 
+     $path = $url_object->getInternalPath();
+ 
++    if ($this->batchSettings['remove_duplicates_by_context'] && $this->pathProcessedByContext($context, $path)) {
++      return FALSE;
++    }
+     // Do not include paths that have been already indexed.
+     if ($this->batchSettings['remove_duplicates'] && $this->pathProcessed($path)) {
+       return FALSE;
+@@ -162,7 +176,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
+       'images' => !empty($entity_settings['include_images']) && !empty($entity)
+         ? $this->getImages($entity->getEntityTypeId(), $entity->id())
+         : [],
+-
++      'context' => $context,
+       // Additional info useful in hooks.
+       'meta' => [
+         'path' => $path,
+@@ -179,7 +193,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
+   }
+ 
+   /**
+-   * @inheritdoc
++   * {@inheritdoc}
+    */
+   protected function getBatchIterationElements($menu_name) {
+ 
+diff --git a/src/Plugin/simple_sitemap/UrlGenerator/EntityUrlGenerator.php b/src/Plugin/simple_sitemap/UrlGenerator/EntityUrlGenerator.php
+index b352596..56669ac 100644
+--- a/src/Plugin/simple_sitemap/UrlGenerator/EntityUrlGenerator.php
++++ b/src/Plugin/simple_sitemap/UrlGenerator/EntityUrlGenerator.php
+@@ -2,6 +2,7 @@
+ 
+ namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
+ 
++use Drupal\Core\Extension\ModuleHandlerInterface;
+ use Drupal\simple_sitemap\EntityHelper;
+ use Drupal\simple_sitemap\Logger;
+ use Drupal\simple_sitemap\Simplesitemap;
+@@ -33,17 +34,21 @@ class EntityUrlGenerator extends UrlGeneratorBase {
+   protected $urlGeneratorManager;
+ 
+   /**
+-   * EntityMenuLinkContentUrlGenerator constructor.
++   * EntityUrlGenerator constructor.
++   *
+    * @param array $configuration
+-   * @param string $plugin_id
+-   * @param mixed $plugin_definition
+-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
+-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
+-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
+-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+-   * @param \Drupal\simple_sitemap\Logger $logger
+-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
+-   * @param \Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator\UrlGeneratorManager $url_generator_manager
++   * @param $plugin_id
++   * @param $plugin_definition
++   * @param Simplesitemap $generator
++   * @param SitemapGenerator $sitemap_generator
++   * @param LanguageManagerInterface $language_manager
++   * @param EntityTypeManagerInterface $entity_type_manager
++   * @param Logger $logger
++   * @param EntityHelper $entityHelper
++   * @param ModuleHandlerInterface $module_handler
++   * @param UrlGeneratorManager $url_generator_manager
++   *
++   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+    */
+   public function __construct(
+     array $configuration,
+@@ -55,6 +60,7 @@ class EntityUrlGenerator extends UrlGeneratorBase {
+     EntityTypeManagerInterface $entity_type_manager,
+     Logger $logger,
+     EntityHelper $entityHelper,
++    ModuleHandlerInterface $module_handler,
+     UrlGeneratorManager $url_generator_manager
+   ) {
+     parent::__construct(
+@@ -66,11 +72,15 @@ class EntityUrlGenerator extends UrlGeneratorBase {
+       $language_manager,
+       $entity_type_manager,
+       $logger,
+-      $entityHelper
++      $entityHelper,
++      $module_handler
+     );
+     $this->urlGeneratorManager = $url_generator_manager;
+   }
+ 
++  /**
++   * {@inheritdoc}
++   */
+   public static function create(
+     ContainerInterface $container,
+     array $configuration,
+@@ -86,36 +96,42 @@ class EntityUrlGenerator extends UrlGeneratorBase {
+       $container->get('entity_type.manager'),
+       $container->get('simple_sitemap.logger'),
+       $container->get('simple_sitemap.entity_helper'),
++      $container->get('module_handler'),
+       $container->get('plugin.manager.simple_sitemap.url_generator')
+     );
+   }
+ 
+   /**
+-   * @inheritdoc
++   * {@inheritdoc}
+    */
+-  public function getDataSets() {
++  public function getDataSets($context) {
+     $data_sets = [];
+     $sitemap_entity_types = $this->entityHelper->getSupportedEntityTypes();
++    $bundle_settings = $this->generator->getBundleSettings($context);
+ 
+-    foreach ($this->generator->getBundleSettings() as $entity_type_name => $bundles) {
+-      if (isset($sitemap_entity_types[$entity_type_name])) {
++    $this->moduleHandler->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
+ 
+-        // Skip this entity type if another plugin is written to override its generation.
+-        foreach ($this->urlGeneratorManager->getDefinitions() as $plugin) {
+-          if ($plugin['enabled'] && !empty($plugin['settings']['overrides_entity_type'])
+-            && $plugin['settings']['overrides_entity_type'] === $entity_type_name) {
+-            continue 2;
++    if (!empty($bundle_settings)) {
++      foreach ($bundle_settings as $entity_type_name => $bundles) {
++        if (isset($sitemap_entity_types[$entity_type_name])) {
++
++          // Skip this entity type if another plugin is written to override its generation.
++          foreach ($this->urlGeneratorManager->getDefinitions() as $plugin) {
++            if ($plugin['enabled'] && !empty($plugin['settings']['overrides_entity_type'])
++              && $plugin['settings']['overrides_entity_type'] === $entity_type_name) {
++              continue 2;
++            }
+           }
+-        }
+ 
+-        foreach ($bundles as $bundle_name => $bundle_settings) {
+-          if ($bundle_settings['index']) {
+-            $data_sets[] = [
+-              'bundle_settings' => $bundle_settings,
+-              'bundle_name' => $bundle_name,
+-              'entity_type_name' => $entity_type_name,
+-              'keys' => $sitemap_entity_types[$entity_type_name]->getKeys(),
+-            ];
++          foreach ($bundles as $bundle_name => $bundle_settings) {
++            if ($bundle_settings['index']) {
++              $data_sets[] = [
++                'bundle_settings' => $bundle_settings,
++                'bundle_name' => $bundle_name,
++                'entity_type_name' => $entity_type_name,
++                'keys' => $sitemap_entity_types[$entity_type_name]->getKeys(),
++              ];
++            }
+           }
+         }
+       }
+@@ -125,14 +141,14 @@ class EntityUrlGenerator extends UrlGeneratorBase {
+   }
+ 
+   /**
+-   * @inheritdoc
++   * {@inheritdoc}
+    */
+-  protected function processDataSet($entity) {
++  protected function processDataSet($context, $entity) {
+ 
+     $entity_id = $entity->id();
+     $entity_type_name = $entity->getEntityTypeId();
+ 
+-    $entity_settings = $this->generator->getEntityInstanceSettings($entity_type_name, $entity_id);
++    $entity_settings = $this->generator->getEntityInstanceSettings($context, $entity_type_name, $entity_id);
+ 
+     if (empty($entity_settings['index'])) {
+       return FALSE;
+@@ -147,6 +163,9 @@ class EntityUrlGenerator extends UrlGeneratorBase {
+ 
+     $path = $url_object->getInternalPath();
+ 
++    if ($this->batchSettings['remove_duplicates_by_context'] && $this->pathProcessedByContext($context, $path)) {
++      return FALSE;
++    }
+     // Do not include paths that have been already indexed.
+     if ($this->batchSettings['remove_duplicates'] && $this->pathProcessed($path)) {
+       return FALSE;
+@@ -162,20 +181,21 @@ class EntityUrlGenerator extends UrlGeneratorBase {
+       'images' => !empty($entity_settings['include_images'])
+         ? $this->getImages($entity_type_name, $entity_id)
+         : [],
+-
++      'context' => $context,
+       // Additional info useful in hooks.
+       'meta' => [
+         'path' => $path,
+         'entity_info' => [
+           'entity_type' => $entity_type_name,
+           'id' => $entity_id,
++          'bundle' => $entity->bundle(),
+         ],
+       ]
+     ];
+   }
+ 
+   /**
+-   * @inheritdoc
++   * {@inheritdoc}
+    */
+   protected function getBatchIterationElements($entity_info) {
+     $query = $this->entityTypeManager->getStorage($entity_info['entity_type_name'])->getQuery();
+diff --git a/src/Plugin/simple_sitemap/UrlGenerator/UrlGeneratorBase.php b/src/Plugin/simple_sitemap/UrlGenerator/UrlGeneratorBase.php
+index 422eb4f..f3a4a56 100644
+--- a/src/Plugin/simple_sitemap/UrlGenerator/UrlGeneratorBase.php
++++ b/src/Plugin/simple_sitemap/UrlGenerator/UrlGeneratorBase.php
+@@ -2,9 +2,10 @@
+ 
+ namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
+ 
++use Drupal\Component\Utility\Html;
++use Drupal\Core\Extension\ModuleHandlerInterface;
+ use Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGeneratorPluginBase;
+ use Symfony\Component\DependencyInjection\ContainerInterface;
+-use Drupal\Component\Utility\Html;
+ use Drupal\Core\Entity\ContentEntityBase;
+ use Drupal\Core\Url;
+ use Drupal\simple_sitemap\EntityHelper;
+@@ -79,17 +80,26 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+    */
+   protected $entityHelper;
+ 
++  /**
++   * @var  \Drupal\Core\Extension\ModuleHandlerInterface
++   */
++  protected $moduleHandler;
++
+   /**
+    * UrlGeneratorBase constructor.
++   *
+    * @param array $configuration
+-   * @param string $plugin_id
+-   * @param mixed $plugin_definition
+-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
+-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
+-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
+-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+-   * @param \Drupal\simple_sitemap\Logger $logger
+-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
++   * @param $plugin_id
++   * @param $plugin_definition
++   * @param Simplesitemap $generator
++   * @param SitemapGenerator $sitemap_generator
++   * @param LanguageManagerInterface $language_manager
++   * @param EntityTypeManagerInterface $entity_type_manager
++   * @param Logger $logger
++   * @param EntityHelper $entityHelper
++   * @param ModuleHandlerInterface $module_handler
++   *
++   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+    */
+   public function __construct(
+     array $configuration,
+@@ -100,7 +110,8 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+     LanguageManagerInterface $language_manager,
+     EntityTypeManagerInterface $entity_type_manager,
+     Logger $logger,
+-    EntityHelper $entityHelper
++    EntityHelper $entityHelper,
++    ModuleHandlerInterface $module_handler
+   ) {
+     parent::__construct($configuration, $plugin_id, $plugin_definition);
+     $this->generator = $generator;
+@@ -111,10 +122,14 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+     $this->entityTypeManager = $entity_type_manager;
+     $this->logger = $logger;
+     $this->entityHelper = $entityHelper;
++    $this->moduleHandler = $module_handler;
+     $this->anonUser = $this->entityTypeManager->getStorage('user')
+       ->load(self::ANONYMOUS_USER_ID);
+   }
+ 
++  /**
++   * {@inheritdoc}
++   */
+   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+     return new static(
+       $configuration,
+@@ -125,7 +140,8 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+       $container->get('language_manager'),
+       $container->get('entity_type.manager'),
+       $container->get('simple_sitemap.logger'),
+-      $container->get('simple_sitemap.entity_helper')
++      $container->get('simple_sitemap.entity_helper'),
++      $container->get('module_handler')
+     );
+   }
+ 
+@@ -154,42 +170,100 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+     return $this->batchSettings['from'] !== 'nobatch';
+   }
+ 
++  /**
++   * @return array
++   */
+   protected function getProcessedElements() {
+     return !empty($this->context['results']['processed_paths'])
+       ? $this->context['results']['processed_paths']
+       : [];
+   }
+ 
++  /**
++   * @param $path
++   */
+   protected function addProcessedElement($path) {
+     $this->context['results']['processed_paths'][] = $path;
+   }
+ 
++  /**
++   * @param $elements
++   */
+   protected function setProcessedElements($elements) {
+     $this->context['results']['processed_elements'] = $elements;
+   }
+ 
+-  protected function getBatchResults() {
+-    return !empty($this->context['results']['generate'])
+-      ? $this->context['results']['generate']
++  /**
++   * @param $context
++   *
++   * @return array
++   */
++  protected function getProcessedElementsByContext($context) {
++    return !empty($this->context['results']['processed_paths_by_context'][$context])
++      ? $this->context['results']['processed_paths_by_context'][$context]
+       : [];
+   }
+ 
+-  protected function addBatchResult($result) {
+-    $this->context['results']['generate'][] = $result;
++  /**
++   * @param $context
++   * @param $path
++   */
++  protected function addProcessedElementByContext($context, $path) {
++    $this->context['results']['processed_paths_by_context'][$context][] = $path;
+   }
+ 
+-  protected function setBatchResults($results) {
+-    $this->context['results']['generate'] = $results;
++  /**
++   * @param $context
++   * @param $elements
++   */
++  protected function setProcessedElementsByContext($context, $elements) {
++    $this->context['results']['processed_elements_by_context'][$context] = $elements;
++  }
++
++  /**
++   * @param $context
++   *
++   * @return array
++   */
++  protected function getBatchResults($context) {
++    return !empty($this->context['results'][$context]['generate'])
++      ? $this->context['results'][$context]['generate']
++      : [];
+   }
+ 
+-  protected function getChunkCount() {
+-    return !empty($this->context['results']['chunk_count'])
+-      ? $this->context['results']['chunk_count']
++  /**
++   * @param $context
++   * @param $result
++   */
++  protected function addBatchResult($context, $result) {
++    $this->context['results'][$context]['generate'][] = $result;
++  }
++
++  /**
++   * @param $context
++   * @param $results
++   */
++  protected function setBatchResults($context, $results) {
++    $this->context['results'][$context]['generate'] = $results;
++  }
++
++  /**
++   * @param $context
++   *
++   * @return int
++   */
++  protected function getDeltaCount($context) {
++    return !empty($this->context['results'][$context]['delta_count'])
++      ? $this->context['results'][$context]['delta_count']
+       : 0;
+   }
+ 
+-  protected function setChunkCount($chunk_count) {
+-    $this->context['results']['chunk_count'] = $chunk_count;
++  /**
++   * @param $context
++   * @param $delta_count
++   */
++  protected function setDeltaCount($context, $delta_count) {
++    $this->context['results'][$context]['delta_count'] = $delta_count;
+   }
+ 
+   /**
+@@ -205,24 +279,40 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+   }
+ 
+   /**
++   * @param $context
++   * @param $path
++   *
++   * @return bool
++   */
++  protected function pathProcessedByContext($context, $path) {
++    if (in_array($path, $this->getProcessedElementsByContext($context))) {
++      return TRUE;
++    }
++    $this->addProcessedElementByContext($context, $path);
++    return FALSE;
++  }
++
++  /**
++   * @param $context
+    * @param array $path_data
+    */
+-  protected function addUrl(array $path_data) {
++  protected function addUrl($context, array $path_data) {
+     if ($path_data['url'] instanceof Url) {
+       $url_object = $path_data['url'];
+       unset($path_data['url']);
+-      $this->addUrlVariants($path_data, $url_object);
++      $this->addUrlVariants($context, $path_data, $url_object);
+     }
+     else {
+-      $this->addBatchResult($path_data);
++      $this->addBatchResult($context, $path_data);
+     }
+   }
+ 
+   /**
+-   * @param Url $url_object
++   * @param $context
+    * @param array $path_data
++   * @param Url $url_object
+    */
+-  protected function addUrlVariants(array $path_data, Url $url_object) {
++  protected function addUrlVariants($context, array $path_data, Url $url_object) {
+     $entity = $this->entityHelper->getEntityFromUrlObject($url_object);
+ 
+     if ($entity instanceof ContentEntityBase && $this->batchSettings['skip_untranslated']) {
+@@ -244,6 +334,7 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+ 
+     foreach ($alternate_urls as $langcode => $url) {
+       $this->addBatchResult(
++        $context,
+         $path_data + [
+           'langcode' => $langcode, 'url' => $url, 'alternate_urls' => $alternate_urls
+         ]
+@@ -251,6 +342,11 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+     }
+   }
+ 
++  /**
++   * @param $url_object
++   *
++   * @return array
++   */
+   protected function getAlternateUrlsForDefaultLanguage($url_object) {
+     $alternate_urls = [];
+     if ($url_object->access($this->anonUser)) {
+@@ -260,6 +356,12 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+     return $alternate_urls;
+   }
+ 
++  /**
++   * @param $entity
++   * @param $url_object
++   *
++   * @return array
++   */
+   protected function getAlternateUrlsForTranslatedLanguages($entity, $url_object) {
+     $alternate_urls = [];
+     foreach ($entity->getTranslationLanguages() as $language) {
+@@ -274,6 +376,11 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+     return $alternate_urls;
+   }
+ 
++  /**
++   * @param $url_object
++   *
++   * @return array
++   */
+   protected function getAlternateUrlsForAllLanguages($url_object) {
+     $alternate_urls = [];
+     if ($url_object->access($this->anonUser)) {
+@@ -298,8 +405,12 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+    * @param $max
+    */
+   protected function initializeBatch($max) {
+-    $this->setBatchResults($this->getBatchResults());
+-    $this->setChunkCount($this->getChunkCount());
++    $contexts = $this->generator->getSitemapContexts();
++    foreach ($contexts as $context => $context_info) {
++      $this->setBatchResults($context, $this->getBatchResults($context));
++      $this->setDeltaCount($context, $this->getDeltaCount($context));
++      $this->setProcessedElementsByContext($context, $this->getProcessedElementsByContext($context));
++    }
+     $this->setProcessedElements($this->getProcessedElements());
+ 
+     // Initialize sandbox for the batch process.
+@@ -322,54 +433,60 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+   }
+ 
+   /**
+-   *
++   * @param $context
+    */
+-  protected function processSegment() {
++  protected function processSegment($context) {
+     if ($this->isBatch()) {
+-      $this->setProgressInfo();
++      $this->setProgressInfo($context);
+     }
+ 
+     if (!empty($max_links = $this->batchSettings['max_links'])
+-      && count($this->getBatchResults()) >= $max_links) {
++      && count($this->getBatchResults($context)) >= $max_links) {
+ 
+-      foreach (array_chunk($this->getBatchResults(), $max_links) as $chunk_links) {
++      foreach (array_chunk($this->getBatchResults($context), $max_links) as $delta_links) {
+ 
+-        if (count($chunk_links) == $max_links) {
++        if (count($delta_links) == $max_links) {
+ 
+           // Generate sitemap.
+           $this->sitemapGenerator
+             ->setSettings(['excluded_languages' => $this->batchSettings['excluded_languages']])
+-            ->generateSitemap($chunk_links, empty($this->getChunkCount()));
++            ->generateSitemap($context, $delta_links, empty($this->getDeltaCount($context)));
+ 
+-          // Update chunk count info.
+-          $this->setChunkCount(empty($this->getChunkCount()) ? 1 : ($this->getChunkCount() + 1));
++          // Update delta count info.
++          $this->setDeltaCount($context, empty($this->getDeltaCount($context)) ? 1 : ($this->getDeltaCount($context) + 1));
+ 
+           // Remove links from result array that have been generated.
+-          $this->setBatchResults(array_slice($this->getBatchResults(), count($chunk_links)));
++          $this->setBatchResults($context, array_slice($this->getBatchResults($context), count($delta_links)));
+         }
+       }
+     }
+   }
+ 
+-  protected function setProgressInfo() {
++  /**
++   * @param $context
++   */
++  protected function setProgressInfo($context) {
+     if ($this->context['sandbox']['progress'] != $this->context['sandbox']['max']) {
+ 
+       // Provide progress info to the batch API.
+       $this->context['finished'] = $this->context['sandbox']['progress'] / $this->context['sandbox']['max'];
+ 
+       // Add processing message after finishing every batch segment.
+-      $this->setProcessingBatchMessage();
++      $this->setProcessingBatchMessage($context);
+     }
+   }
+ 
+-  protected function setProcessingBatchMessage() {
+-    $results = $this->getBatchResults();
++  /**
++   * @param $context
++   */
++  protected function setProcessingBatchMessage($context) {
++    $results = $this->getBatchResults($context);
+     end($results);
+     if (!empty($path = $results[key($results)]['meta']['path'])) {
+       $this->context['message'] = $this->t(self::PROCESSING_PATH_MESSAGE, [
+         '@current' => $this->context['sandbox']['progress'],
+         '@max' => $this->context['sandbox']['max'],
+-        '@path' => HTML::escape($path),
++        '@path' => Html::escape($path),
+       ]);
+     }
+   }
+@@ -399,32 +516,39 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
+   }
+ 
+   /**
++   * @param $context
++   *
+    * @return array
+    */
+-  abstract public function getDataSets();
++  abstract public function getDataSets($context);
+ 
+   /**
++   * @param $context
+    * @param $data_set
++   *
+    * @return array
+    */
+-  abstract protected function processDataSet($data_set);
++  abstract protected function processDataSet($context, $data_set);
+ 
+   /**
+    * Called by batch.
+    *
+-   * @param array|null $data_sets
++   * @param $context
++   * @param null $data_sets
++   *
++   * @return mixed|void
+    */
+-  public function generate($data_sets = NULL) {
+-    $data_sets = NULL !== $data_sets ? $data_sets : $this->getDataSets();
++  public function generate($context, $data_sets = NULL) {
++    $data_sets = NULL !== $data_sets ? $data_sets : $this->getDataSets($context);
+     foreach ($this->getBatchIterationElements($data_sets) as $id => $data_set) {
+       $this->setCurrentId($id);
+-      $path_data = $this->processDataSet($data_set);
++      $path_data = $this->processDataSet($context, $data_set);
+       if (!$path_data) {
+         continue;
+       }
+-      $this->addUrl($path_data);
++      $this->addUrl($context, $path_data);
+     }
+-    $this->processSegment();
++    $this->processSegment($context);
+   }
+ 
+   /**
+diff --git a/src/Plugin/simple_sitemap/UrlGenerator/UrlGeneratorInterface.php b/src/Plugin/simple_sitemap/UrlGenerator/UrlGeneratorInterface.php
+index 03d6a14..b99c452 100644
+--- a/src/Plugin/simple_sitemap/UrlGenerator/UrlGeneratorInterface.php
++++ b/src/Plugin/simple_sitemap/UrlGenerator/UrlGeneratorInterface.php
+@@ -8,10 +8,17 @@ namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
+  */
+ interface UrlGeneratorInterface {
+ 
+-  public function generate();
++  /**
++   * @param $context
++   *
++   * @return mixed
++   */
++  public function generate($context);
+ 
+   /**
++   * @param $context
++   *
+    * @return mixed
+    */
+-  public function getDataSets();
++  public function getDataSets($context);
+ }
+diff --git a/src/Plugin/simple_sitemap/UrlGeneratorPluginBase.php b/src/Plugin/simple_sitemap/UrlGeneratorPluginBase.php
+index e9bc7db..c6f2558 100644
+--- a/src/Plugin/simple_sitemap/UrlGeneratorPluginBase.php
++++ b/src/Plugin/simple_sitemap/UrlGeneratorPluginBase.php
+@@ -32,15 +32,8 @@ abstract class UrlGeneratorPluginBase extends SimplesitemapPluginBase  implement
+   public $provider;
+ 
+   /**
+-   * UrlGeneratorPluginBase constructor.
+-   * @param array $configuration
+-   * @param string $plugin_id
+-   * @param mixed $plugin_definition
++   * {@inheritdoc}
+    */
+-  public function __construct(array $configuration, $plugin_id, $plugin_definition) {
+-    parent::__construct($configuration, $plugin_id, $plugin_definition);
+-  }
+-
+   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+     return new static($configuration, $plugin_id, $plugin_definition);
+   }
+diff --git a/src/Simplesitemap.php b/src/Simplesitemap.php
+index 307508f..d581296 100644
+--- a/src/Simplesitemap.php
++++ b/src/Simplesitemap.php
+@@ -4,6 +4,7 @@ namespace Drupal\simple_sitemap;
+ 
+ use Drupal\Core\Database\Connection;
+ use Drupal\Core\Entity\EntityTypeManagerInterface;
++use Drupal\Core\Extension\ModuleHandlerInterface;
+ use Drupal\Core\Path\PathValidator;
+ use Drupal\Core\Config\ConfigFactory;
+ use Drupal\Core\Datetime\DateFormatter;
+@@ -11,11 +12,16 @@ use Drupal\Component\Datetime\Time;
+ use Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator\UrlGeneratorManager;
+ 
+ /**
+- * Class Simplesitemap
++ * Class Simplesitemap.
+  * @package Drupal\simple_sitemap
+  */
+ class Simplesitemap {
+ 
++  /**
++   *  Default value for context
++   */
++  const CONTEXT_DEFAULT = 'default';
++
+   /**
+    * @var \Drupal\simple_sitemap\SitemapGenerator
+    */
+@@ -75,8 +81,8 @@ class Simplesitemap {
+    * @var array
+    */
+   protected static $allowedLinkSettings = [
+-    'entity' => ['index', 'priority', 'changefreq', 'include_images'],
+-    'custom' => ['priority', 'changefreq'],
++    'entity' => ['index', 'priority', 'changefreq', 'include_images', 'context'],
++    'custom' => ['priority', 'changefreq', 'context'],
+   ];
+ 
+   /**
+@@ -87,6 +93,7 @@ class Simplesitemap {
+     'priority' => 0.5,
+     'changefreq' => '',
+     'include_images' => 0,
++    'context' => 'default',
+   ];
+ 
+   /**
+@@ -112,7 +119,8 @@ class Simplesitemap {
+     DateFormatter $dateFormatter,
+     Time $time,
+     Batch $batch,
+-    UrlGeneratorManager $urlGeneratorManager
++    UrlGeneratorManager $urlGeneratorManager,
++    ModuleHandlerInterface $moduleHandler
+   ) {
+     $this->sitemapGenerator = $sitemapGenerator;
+     $this->entityHelper = $entityHelper;
+@@ -124,6 +132,7 @@ class Simplesitemap {
+     $this->time = $time;
+     $this->batch = $batch;
+     $this->urlGeneratorManager = $urlGeneratorManager;
++    $this->moduleHandler = $moduleHandler;
+   }
+ 
+   /**
+@@ -163,65 +172,67 @@ class Simplesitemap {
+   }
+ 
+   /**
+-   * Returns the whole sitemap, a requested sitemap chunk,
++   * Returns the whole sitemap, a requested sitemap delta,
+    * or the sitemap index file.
+    *
+-   * @param int $chunk_id
++   * @param string $context
++   * @param null $delta
+    *
+-   * @return string|false
+-   *   If no sitemap id provided, either a sitemap index is returned, or the
+-   *   whole sitemap, if the amount of links does not exceed the max links
+-   *   setting. If a sitemap id is provided, a sitemap chunk is returned. False
+-   *   if sitemap is not retrievable from the database.
++   * @return bool|string
++   *    If no sitemap id provided, either a sitemap index is returned, or the
++   *    whole sitemap, if the amount of links does not exceed the max links
++   *    setting. If a sitemap id is provided, a sitemap delta is returned. False
++   *    if sitemap is not retrievable from the database.
+    */
+-  public function getSitemap($chunk_id = NULL) {
+-    $chunk_info = $this->fetchSitemapChunkInfo();
++  public function getSitemap($context = Simplesitemap::CONTEXT_DEFAULT, $delta = NULL) {
++    $delta_info = $this->fetchSitemapDeltaInfo($context);
+ 
+-    if (NULL === $chunk_id || !isset($chunk_info[$chunk_id])) {
++    if (NULL === $delta || !isset($delta_info[$delta])) {
+ 
+-      if (count($chunk_info) > 1) {
+-        // Return sitemap index, if there are multiple sitemap chunks.
+-        return $this->getSitemapIndex($chunk_info);
++      if (count($delta_info) > 1) {
++        // Return sitemap index, if there are multiple sitemap deltas.
++        return $this->getSitemapIndex($context, $delta_info);
+       }
+       else {
+-        // Return sitemap if there is only one chunk.
+-        return count($chunk_info) === 1
+-        && isset($chunk_info[SitemapGenerator::FIRST_CHUNK_INDEX])
+-          ? $this->fetchSitemapChunk(SitemapGenerator::FIRST_CHUNK_INDEX)
++        // Return sitemap if there is only one delta.
++        return count($delta_info) === 1
++        && isset($delta_info[SitemapGenerator::FIRST_DELTA_INDEX])
++          ? $this->fetchSitemapDelta($context, SitemapGenerator::FIRST_DELTA_INDEX)
+             ->sitemap_string
+           : FALSE;
+       }
+     }
+     else {
+-      // Return specific sitemap chunk.
+-      return $this->fetchSitemapChunk($chunk_id)->sitemap_string;
++      // Return specific sitemap delta.
++      return $this->fetchSitemapDelta($context, $delta)->sitemap_string;
+     }
+   }
+ 
+   /**
+-   * Fetches all sitemap chunk timestamps keyed by chunk ID.
++   * Fetches all sitemap delta timestamps keyed by delta ID.
++   *
++   * @param $context
+    *
+    * @return array
+-   *   An array containing chunk creation timestamps keyed by chunk ID.
++   *   An array containing delta creation timestamps keyed by delta ID.
+    */
+-  protected function fetchSitemapChunkInfo() {
+-    return $this->db
+-      ->query('SELECT id, sitemap_created FROM {simple_sitemap}')
+-      ->fetchAllAssoc('id');
++  protected function fetchSitemapDeltaInfo($context) {
++    return $this->db->query('SELECT delta, sitemap_created FROM {simple_sitemap} WHERE context = :context',
++      [':context' => $context])->fetchAllAssoc('delta');
+   }
+ 
+   /**
+-   * Fetches a single sitemap chunk by ID.
++   * Fetches a single sitemap delta by ID.
+    *
+-   * @param int $id
+-   *   The chunk ID.
++   * @param $context
++   * @param $delta
+    *
+-   * @return object
+-   *   A sitemap chunk object.
++   * @return mixed
++   *    A sitemap delta object.
+    */
+-  protected function fetchSitemapChunk($id) {
+-    return $this->db->query('SELECT * FROM {simple_sitemap} WHERE id = :id',
+-      [':id' => $id])->fetchObject();
++  protected function fetchSitemapDelta($context, $delta) {
++    return $this->db->query('SELECT * FROM {simple_sitemap} WHERE context = :context AND delta = :delta',
++      [':context' => $context, ':delta' => $delta])->fetchObject();
+   }
+ 
+   /**
+@@ -240,26 +251,30 @@ class Simplesitemap {
+       'batch_process_limit' => $this->getSetting('batch_process_limit', NULL),
+       'max_links' => $this->getSetting('max_links', 2000),
+       'skip_untranslated' => $this->getSetting('skip_untranslated', FALSE),
+-      'remove_duplicates' => $this->getSetting('remove_duplicates', TRUE),
++      'remove_duplicates' => $this->getSetting('remove_duplicates', FALSE),
++      'remove_duplicates_by_context' => $this->getSetting('remove_duplicates_by_context', TRUE),
+       'excluded_languages' => $this->getSetting('excluded_languages', []),
+       'from' => $from,
+     ]);
+ 
+     $plugins = $this->urlGeneratorManager->getDefinitions();
++    $contexts = $this->getSitemapContexts();
+ 
+     usort($plugins, function($a, $b) {
+       return $a['weight'] - $b['weight'];
+     });
+ 
+-    foreach ($plugins as $plugin) {
+-      if ($plugin['enabled']) {
+-        if (!empty($plugin['settings']['instantiate_for_each_data_set'])) {
+-          foreach ($this->urlGeneratorManager->createInstance($plugin['id'])->getDataSets() as $data_sets) {
+-            $this->batch->addOperation($plugin['id'], $data_sets);
++    foreach ($contexts as $context => $context_info) {
++      foreach ($plugins as $plugin) {
++        if ($plugin['enabled']) {
++          if (!empty($plugin['settings']['instantiate_for_each_data_set'])) {
++            foreach ($this->urlGeneratorManager->createInstance($plugin['id'])->getDataSets($context) as $data_sets) {
++              $this->batch->addOperation($plugin['id'], $context, $data_sets);
++            }
++          }
++          else {
++            $this->batch->addOperation($plugin['id'], $context);
+           }
+-        }
+-        else {
+-          $this->batch->addOperation($plugin['id']);
+         }
+       }
+     }
+@@ -271,18 +286,19 @@ class Simplesitemap {
+   /**
+    * Generates and returns the sitemap index as string.
+    *
+-   * @param array $chunk_info
+-   *   Array containing chunk creation timestamps keyed by chunk ID.
++   * @param $context
++   * @param array $delta_info
++   *   Array containing delta creation timestamps keyed by delta ID.
+    *
+    * @return string
+    *   The sitemap index.
+    *
+    * @todo Need to make sure response is cached.
+    */
+-  protected function getSitemapIndex($chunk_info) {
++  protected function getSitemapIndex($context, $delta_info) {
+     return $this->sitemapGenerator
+       ->setSettings(['base_url' => $this->getSetting('base_url', '')])
+-      ->generateSitemapIndex($chunk_info);
++      ->generateSitemapIndex($context, $delta_info);
+   }
+ 
+   /**
+@@ -292,10 +308,10 @@ class Simplesitemap {
+    *   Formatted timestamp of last sitemap generation, otherwise FALSE.
+    */
+   public function getGeneratedAgo() {
+-    $chunks = $this->fetchSitemapChunkInfo();
+-    if (isset($chunks[SitemapGenerator::FIRST_CHUNK_INDEX]->sitemap_created)) {
++    $deltas = $this->fetchSitemapDeltaInfo();
++    if (isset($deltas[SitemapGenerator::FIRST_DELTA_INDEX]->sitemap_created)) {
+       return $this->dateFormatter
+-        ->formatInterval($this->time->getRequestTime() - $chunks[SitemapGenerator::FIRST_CHUNK_INDEX]
++        ->formatInterval($this->time->getRequestTime() - $deltas[SitemapGenerator::FIRST_DELTA_INDEX]
+             ->sitemap_created);
+     }
+     return FALSE;
+@@ -355,6 +371,7 @@ class Simplesitemap {
+    * Sets sitemap settings for a non-bundle entity type (e.g. user) or a bundle
+    * of an entity type (e.g. page).
+    *
++   * @param $context
+    * @param string $entity_type_id
+    *  Entity type id like 'node' the bundle belongs to.
+    * @param string $bundle_name
+@@ -367,10 +384,10 @@ class Simplesitemap {
+    *
+    * @todo: enableEntityType automatically
+    */
+-  public function setBundleSettings($entity_type_id, $bundle_name = NULL, $settings = []) {
++  public function setBundleSettings($context, $entity_type_id, $bundle_name = NULL, $settings = []) {
+     $bundle_name = empty($bundle_name) ? $entity_type_id : $bundle_name;
+ 
+-    if (!empty($old_settings = $this->getBundleSettings($entity_type_id, $bundle_name))) {
++    if (!empty($old_settings = $this->getBundleSettings($context, $entity_type_id, $bundle_name))) {
+       $settings = array_merge($old_settings, $settings);
+     }
+     else {
+@@ -439,6 +456,7 @@ class Simplesitemap {
+    * Gets sitemap settings for an entity bundle, a non-bundle entity type or for
+    * all entity types and their bundles.
+    *
++   * @param $context
+    * @param string|null $entity_type_id
+    *  If set to null, sitemap settings for all entity types and their bundles
+    *  are fetched.
+@@ -449,13 +467,16 @@ class Simplesitemap {
+    *  or for all entity types and their bundles.
+    *  False if entity type does not exist.
+    */
+-  public function getBundleSettings($entity_type_id = NULL, $bundle_name = NULL) {
++  public function getBundleSettings($context, $entity_type_id = NULL, $bundle_name = NULL) {
+     if (NULL !== $entity_type_id) {
+       $bundle_name = empty($bundle_name) ? $entity_type_id : $bundle_name;
+-      $bundle_settings = $this->configFactory
++      $bundle_settings[$entity_type_id][$bundle_name] = $this->configFactory
+         ->get("simple_sitemap.bundle_settings.$entity_type_id.$bundle_name")
+         ->get();
+-      return !empty($bundle_settings) ? $bundle_settings : FALSE;
++
++      $this->moduleHandler->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
++
++      $bundle_settings = !empty($bundle_settings[$entity_type_id][$bundle_name]) ? $bundle_settings[$entity_type_id][$bundle_name] : FALSE;
+     }
+     else {
+       $config_names = $this->configFactory->listAll('simple_sitemap.bundle_settings.');
+@@ -464,8 +485,10 @@ class Simplesitemap {
+         $config_name_parts = explode('.', $config_name);
+         $all_settings[$config_name_parts[2]][$config_name_parts[3]] = $this->configFactory->get($config_name)->get();
+       }
+-      return $all_settings;
++      $bundle_settings = $all_settings;
++      $this->moduleHandler->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
+     }
++    return $bundle_settings;
+   }
+ 
+   /**
+@@ -490,16 +513,17 @@ class Simplesitemap {
+   /**
+    * Overrides entity bundle/entity type sitemap settings for a single entity.
+    *
++   * @param $context
+    * @param string $entity_type_id
+    * @param int $id
+    * @param array $settings
+    *
+    * @return $this
+    */
+-  public function setEntityInstanceSettings($entity_type_id, $id, $settings) {
++  public function setEntityInstanceSettings($context, $entity_type_id, $id, $settings) {
+     $entity = $this->entityTypeManager->getStorage($entity_type_id)->load($id);
+     $bundle_settings = $this->getBundleSettings(
+-      $entity_type_id, $this->entityHelper->getEntityInstanceBundleName($entity)
++      $context, $entity_type_id, $this->entityHelper->getEntityInstanceBundleName($entity)
+     );
+     if (!empty($bundle_settings)) {
+ 
+@@ -538,12 +562,13 @@ class Simplesitemap {
+    * Gets sitemap settings for an entity instance which overrides the sitemap
+    * settings of its bundle, or bundle settings, if they are not overridden.
+    *
++   * @param $context
+    * @param string $entity_type_id
+    * @param int $id
+    *
+    * @return array|false
+    */
+-  public function getEntityInstanceSettings($entity_type_id, $id) {
++  public function getEntityInstanceSettings($context, $entity_type_id, $id) {
+     $results = $this->db->select('simple_sitemap_entity_overrides', 'o')
+       ->fields('o', ['inclusion_settings'])
+       ->condition('o.entity_type', $entity_type_id)
+@@ -558,6 +583,7 @@ class Simplesitemap {
+       $entity = $this->entityTypeManager->getStorage($entity_type_id)
+         ->load($id);
+       return $this->getBundleSettings(
++        $context,
+         $entity_type_id,
+         $this->entityHelper->getEntityInstanceBundleName($entity)
+       );
+@@ -588,13 +614,14 @@ class Simplesitemap {
+    * Checks if an entity bundle (or a non-bundle entity type) is set to be
+    * indexed in the sitemap settings.
+    *
++   * @param $context
+    * @param string $entity_type_id
+    * @param string|null $bundle_name
+    *
+    * @return bool
+    */
+-  public function bundleIsIndexed($entity_type_id, $bundle_name = NULL) {
+-    $settings = $this->getBundleSettings($entity_type_id, $bundle_name);
++  public function bundleIsIndexed($context, $entity_type_id, $bundle_name = NULL) {
++    $settings = $this->getBundleSettings($context, $entity_type_id, $bundle_name);
+     return !empty($settings['index']);
+   }
+ 
+@@ -711,4 +738,19 @@ class Simplesitemap {
+       ->set('links', [])->save();
+     return $this;
+   }
++
++  /**
++   * Gets the defined sitemap contexts.
++   *
++   * The sitemap contexts are defined by hook_simplesitemap_context_info().
++   */
++  public function getSitemapContexts() {
++    $contexts = &drupal_static(__METHOD__);
++    if (!isset($contexts)) {
++      $contexts = $this->moduleHandler->invokeAll('simple_sitemap_context_info');
++    }
++
++    return $contexts;
++  }
++
+ }
+diff --git a/src/SitemapGenerator.php b/src/SitemapGenerator.php
+index aac9cb9..15dbdb5 100644
+--- a/src/SitemapGenerator.php
++++ b/src/SitemapGenerator.php
+@@ -6,6 +6,7 @@ use Drupal\Core\Database\Connection;
+ use Drupal\Core\Extension\ModuleHandler;
+ use Drupal\Core\Language\LanguageManagerInterface;
+ use Drupal\Component\Datetime\Time;
++use Drupal\Core\Url;
+ 
+ /**
+  * Class SitemapGenerator
+@@ -18,7 +19,7 @@ class SitemapGenerator {
+   const XMLNS = 'http://www.sitemaps.org/schemas/sitemap/0.9';
+   const XMLNS_XHTML = 'http://www.w3.org/1999/xhtml';
+   const GENERATED_BY = 'Generated by the Simple XML sitemap Drupal module: https://drupal.org/project/simple_sitemap.';
+-  const FIRST_CHUNK_INDEX = 1;
++  const FIRST_DELTA_INDEX = 1;
+   const XMLNS_IMAGE = 'http://www.google.com/schemas/sitemap-image/1.1';
+ 
+   /**
+@@ -125,34 +126,37 @@ class SitemapGenerator {
+    * Wrapper method which takes links along with their options and then
+    * generates and saves the sitemap.
+    *
++   * @param $context
+    * @param array $links
+    *   All links with their multilingual versions and settings.
+    * @param bool $remove_sitemap
+    *   Remove old sitemap from database before inserting the new one.
+    */
+-  public function generateSitemap(array $links, $remove_sitemap = FALSE) {
++  public function generateSitemap($context, array $links, $remove_sitemap = FALSE) {
+     $values = [
+-      'id' => $remove_sitemap ? self::FIRST_CHUNK_INDEX
+-        : $this->db->query('SELECT MAX(id) FROM {simple_sitemap}')
++      'context' => $context,
++      'delta' => $remove_sitemap ? self::FIRST_DELTA_INDEX
++        : $this->db->query('SELECT MAX(delta) FROM {simple_sitemap} WHERE context = :context', [':context' => $context])
+           ->fetchField() + 1,
+-      'sitemap_string' => $this->generateSitemapChunk($links),
++      'sitemap_string' => $this->generateSitemapDelta($links),
+       'sitemap_created' => $this->time->getRequestTime(),
+     ];
+     if ($remove_sitemap) {
+-      $this->db->truncate('simple_sitemap')->execute();
++      $this->db->delete('simple_sitemap')->condition('context', $context)->execute();
+     }
+     $this->db->insert('simple_sitemap')->fields($values)->execute();
+   }
+ 
+   /**
+-   * Generates and returns the sitemap index for all sitemap chunks.
++   * Generates and returns the sitemap index for all sitemap deltas.
+    *
+-   * @param array $chunk_info
+-   *   Array containing chunk creation timestamps keyed by chunk ID.
++   * @param $context
++   * @param array $delta_info
++   *   Array containing delta creation timestamps keyed by delta ID.
+    *
+    * @return string sitemap index
+    */
+-  public function generateSitemapIndex(array $chunk_info) {
++  public function generateSitemapIndex($context, array $delta_info) {
+     $this->writer->openMemory();
+     $this->writer->setIndent(TRUE);
+     $this->writer->startDocument(self::XML_VERSION, self::ENCODING);
+@@ -166,10 +170,11 @@ class SitemapGenerator {
+     }
+ 
+     // Add sitemap locations to document.
+-    foreach ($chunk_info as $chunk_id => $chunk_data) {
++    foreach ($delta_info as $delta => $delta_data) {
+       $this->writer->startElement('sitemap');
+-      $this->writer->writeElement('loc', $this->getCustomBaseUrl() . '/sitemaps/' . $chunk_id . '/' . 'sitemap.xml');
+-      $this->writer->writeElement('lastmod', date_iso8601($chunk_data->sitemap_created));
++      $url = Url::fromRoute('simple_sitemap.delta', ['delta' => $delta, 'context' => $context])->toString(TRUE);
++      $this->writer->writeElement('loc', $this->getCustomBaseUrl() . $url->getGeneratedUrl());
++      $this->writer->writeElement('lastmod', date_iso8601($delta_data->sitemap_created));
+       $this->writer->endElement();
+     }
+ 
+@@ -188,15 +193,15 @@ class SitemapGenerator {
+   }
+ 
+   /**
+-   * Generates and returns a sitemap chunk.
++   * Generates and returns a sitemap delta.
+    *
+    * @param array $links
+    *   All links with their multilingual versions and settings.
+    *
+    * @return string
+-   *   Sitemap chunk
++   *   Sitemap delta
+    */
+-  protected function generateSitemapChunk(array $links) {
++  protected function generateSitemapDelta(array $links) {
+     $this->writer->openMemory();
+     $this->writer->setIndent(TRUE);
+     $this->writer->startDocument(self::XML_VERSION, self::ENCODING);
+diff --git a/tests/src/Functional/SimplesitemapTest.php b/tests/src/Functional/SimplesitemapTest.php
+index 72d5820..62f7225 100644
+--- a/tests/src/Functional/SimplesitemapTest.php
++++ b/tests/src/Functional/SimplesitemapTest.php
+@@ -27,7 +27,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    * Test custom link.
+    */
+   public function testAddCustomLink() {
+-    $this->generator->addCustomLink('/node/' . $this->node->id(), ['priority' => 0.2, 'changefreq' => 'monthly'])
++    $this->generator->addCustomLink('/node/' . $this->node->id(), ['priority' => 0.2, 'changefreq' => 'monthly', 'context' => 'default'])
+       ->generateSitemap('nobatch');
+ 
+     $this->drupalGet('sitemap.xml');
+@@ -90,11 +90,11 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    * @todo Add form tests
+    */
+   public function testSetBundleSettings() {
+-    $this->assertFalse($this->generator->bundleIsIndexed('node', 'page'));
++    $this->assertFalse($this->generator->bundleIsIndexed('default', 'node', 'page'));
+ 
+     // Index new bundle.
+     $this->generator->removeCustomLinks()
+-      ->setBundleSettings('node', 'page', [
++      ->setBundleSettings('default','node', 'page', [
+         'index' => TRUE,
+         'priority' => 0.5,
+         'changefreq' => 'hourly',
+@@ -106,10 +106,10 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+     $this->assertSession()->responseContains('0.5');
+     $this->assertSession()->responseContains('hourly');
+ 
+-    $this->assertTrue($this->generator->bundleIsIndexed('node', 'page'));
++    $this->assertTrue($this->generator->bundleIsIndexed('default','node', 'page'));
+ 
+     // Only change bundle priority.
+-    $this->generator->setBundleSettings('node', 'page', ['priority' => 0.9])
++    $this->generator->setBundleSettings('default','node', 'page', ['priority' => 0.9])
+       ->generateSitemap('nobatch');
+ 
+     $this->drupalGet('sitemap.xml');
+@@ -118,7 +118,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+     $this->assertSession()->responseContains('0.9');
+ 
+     // Only change bundle changefreq.
+-    $this->generator->setBundleSettings('node', 'page', ['changefreq' => 'daily'])
++    $this->generator->setBundleSettings('default','node', 'page', ['changefreq' => 'daily'])
+       ->generateSitemap('nobatch');
+ 
+     $this->drupalGet('sitemap.xml');
+@@ -127,7 +127,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+     $this->assertSession()->responseContains('daily');
+ 
+     // Remove changefreq setting.
+-    $this->generator->setBundleSettings('node', 'page', ['changefreq' => ''])
++    $this->generator->setBundleSettings('default','node', 'page', ['changefreq' => ''])
+       ->generateSitemap('nobatch');
+ 
+     $this->drupalGet('sitemap.xml');
+@@ -139,8 +139,8 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+     $this->drupalCreateContentType(['type' => 'blog']);
+ 
+     $node3 = $this->createNode(['title' => 'Node3', 'type' => 'blog']);
+-    $this->generator->setBundleSettings('node', 'page', ['index' => TRUE])
+-      ->setBundleSettings('node', 'blog', ['index' => TRUE])
++    $this->generator->setBundleSettings('default','node', 'page', ['index' => TRUE])
++      ->setBundleSettings('default','node', 'blog', ['index' => TRUE])
+       ->generateSitemap('nobatch');
+ 
+     $this->drupalGet('sitemap.xml');
+@@ -148,8 +148,8 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+     $this->assertSession()->responseContains('node/' . $node3->id());
+ 
+     // Set bundle 'index' setting to false.
+-    $this->generator->setBundleSettings('node', 'page', ['index' => FALSE])
+-      ->setBundleSettings('node', 'blog', ['index' => FALSE])
++    $this->generator->setBundleSettings('default','node', 'page', ['index' => FALSE])
++      ->setBundleSettings('default','node', 'blog', ['index' => FALSE])
+       ->generateSitemap('nobatch');
+ 
+     $this->drupalGet('sitemap.xml');
+@@ -161,7 +161,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    * Test default settings of bundles.
+    */
+   public function testSetBundleSettingsDefaults() {
+-    $this->generator->setBundleSettings('node', 'page')
++    $this->generator->setBundleSettings('default','node', 'page')
+       ->removeCustomLinks()
+       ->generateSitemap('nobatch');
+ 
+@@ -176,7 +176,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    */
+   public function testLastmod() {
+     // Entity links should have 'lastmod'.
+-    $this->generator->setBundleSettings('node', 'page')
++    $this->generator->setBundleSettings('default','node', 'page')
+       ->removeCustomLinks()
+       ->generateSitemap('nobatch');
+ 
+@@ -184,7 +184,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+     $this->assertSession()->responseContains('lastmod');
+ 
+     // Entity custom links should have 'lastmod'.
+-    $this->generator->setBundleSettings('node', 'page', ['index' => FALSE])
++    $this->generator->setBundleSettings('default','node', 'page', ['index' => FALSE])
+       ->addCustomLink('/node/' . $this->node->id())
+       ->generateSitemap('nobatch');
+ 
+@@ -206,7 +206,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    * @todo On second generation too many links in XML output here?
+    */
+   public function testRemoveDuplicatesSetting() {
+-    $this->generator->setBundleSettings('node', 'page', ['index' => TRUE])
++    $this->generator->setBundleSettings('default','node', 'page', ['index' => TRUE])
+       ->addCustomLink('/node/1')
+       ->saveSetting('remove_duplicates', TRUE)
+       ->generateSitemap('nobatch');
+@@ -225,21 +225,21 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    * Test max links setting and the sitemap index.
+    */
+   public function testMaxLinksSetting() {
+-    $this->generator->setBundleSettings('node', 'page')
++    $this->generator->setBundleSettings('default','node', 'page')
+       ->saveSetting('max_links', 1)
+       ->removeCustomLinks()
+       ->generateSitemap('nobatch');
+ 
+     $this->drupalGet('sitemap.xml');
+-    $this->assertSession()->responseContains('sitemaps/1/sitemap.xml');
+-    $this->assertSession()->responseContains('sitemaps/2/sitemap.xml');
++    $this->assertSession()->responseContains('sitemaps/default/1/sitemap.xml');
++    $this->assertSession()->responseContains('sitemaps/default/2/sitemap.xml');
+ 
+-    $this->drupalGet('sitemaps/1/sitemap.xml');
++    $this->drupalGet('sitemaps/default/1/sitemap.xml');
+     $this->assertSession()->responseContains('node/' . $this->node->id());
+     $this->assertSession()->responseContains('0.5');
+     $this->assertSession()->responseNotContains('node/' . $this->node2->id());
+ 
+-    $this->drupalGet('sitemaps/2/sitemap.xml');
++    $this->drupalGet('sitemaps/default/2/sitemap.xml');
+     $this->assertSession()->responseContains('node/' . $this->node2->id());
+     $this->assertSession()->responseContains('0.5');
+     $this->assertSession()->responseNotContains('node/' . $this->node->id());
+@@ -255,7 +255,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+     }
+ 
+     // Test batch_process_limit setting.
+-    $sitemap = $this->generator->setBundleSettings('node', 'page')
++    $sitemap = $this->generator->setBundleSettings('default','node', 'page')
+       ->generateSitemap('nobatch')
+       ->getSitemap();
+ 
+@@ -271,25 +271,25 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+     $this->assertEquals($sitemap3, $sitemap);
+ 
+     // Test batch_process_limit setting in combination with max_links setting.
+-    $sitemap_index = $this->generator->setBundleSettings('node', 'page')
++    $sitemap_index = $this->generator->setBundleSettings('default','node', 'page')
+       ->saveSetting('batch_process_limit', 1500)
+       ->saveSetting('max_links', 30)
+       ->generateSitemap('nobatch')
+       ->getSitemap();
+ 
+-    $sitemap_chunk = $this->generator->getSitemap(1);
++    $sitemap_chunk = $this->generator->getSitemap('default',1);
+ 
+     $sitemap_index2 = $this->generator->saveSetting('batch_process_limit', 1)
+       ->generateSitemap('nobatch')
+       ->getSitemap();
+ 
+-    $sitemap_chunk2 = $this->generator->getSitemap(1);
++    $sitemap_chunk2 = $this->generator->getSitemap('default',1);
+ 
+     $sitemap_index3 = $this->generator->saveSetting('batch_process_limit', 10)
+       ->generateSitemap('nobatch')
+       ->getSitemap();
+ 
+-    $sitemap_chunk3 = $this->generator->getSitemap(1);
++    $sitemap_chunk3 = $this->generator->getSitemap('default',1);
+ 
+     $this->assertSame($sitemap_index2, $sitemap_index);
+     $this->assertSame($sitemap_chunk2, $sitemap_chunk);
+@@ -301,7 +301,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    * Test setting the base URL.
+    */
+   public function testBaseUrlSetting() {
+-    $this->generator->setBundleSettings('node', 'page')
++    $this->generator->setBundleSettings('default','node', 'page')
+       ->saveSetting('base_url', 'http://base_url_test')
+       ->generateSitemap('nobatch');
+ 
+@@ -328,7 +328,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    * Test cacheability of the response.
+    */
+   public function testCacheability() {
+-    $this->generator->setBundleSettings('node', 'page')
++    $this->generator->setBundleSettings('default','node', 'page')
+       ->generateSitemap('nobatch');
+ 
+     // Verify the cache was flushed and node is in the sitemap.
+@@ -349,10 +349,10 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    * @todo: Use form testing instead of assertRaw().
+    */
+   public function testSetEntityInstanceSettings() {
+-    $this->generator->setBundleSettings('node', 'page')
++    $this->generator->setBundleSettings('default','node', 'page')
+       ->removeCustomLinks()
+-      ->setEntityInstanceSettings('node', $this->node->id(), ['priority' => 0.1, 'changefreq' => 'never'])
+-      ->setEntityInstanceSettings('node', $this->node2->id(), ['index' => FALSE])
++      ->setEntityInstanceSettings('default','node', $this->node->id(), ['priority' => 0.1, 'changefreq' => 'never'])
++      ->setEntityInstanceSettings('default','node', $this->node2->id(), ['index' => FALSE])
+       ->generateSitemap('nobatch');
+ 
+     // Test sitemap result.
+@@ -379,7 +379,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+       ->fetchField();
+     $this->assertFalse(empty($result));
+ 
+-    $this->generator->setBundleSettings('node', 'page', ['priority' => 0.1, 'changefreq' => 'never'])
++    $this->generator->setBundleSettings('default','node', 'page', ['priority' => 0.1, 'changefreq' => 'never'])
+       ->generateSitemap('nobatch');
+ 
+     // Test sitemap result.
+@@ -412,7 +412,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    */
+   /*public function testAtomicEntityIndexation() {
+     $user_id = $this->privilegedUser->id();
+-    $this->generator->setBundleSettings('user')
++    $this->generator->setBundleSettings('default', 'user')
+       ->generateSitemap('nobatch');
+ 
+     $this->drupalGet('sitemap.xml');
+@@ -437,7 +437,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+    * Test disabling sitemap support for an entity type.
+    */
+   public function testDisableEntityType() {
+-    $this->generator->setBundleSettings('node', 'page')
++    $this->generator->setBundleSettings('default','node', 'page')
+       ->disableEntityType('node');
+ 
+     $this->drupalLogin($this->privilegedUser);
+@@ -460,7 +460,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
+   public function testEnableEntityType() {
+     $this->generator->disableEntityType('node')
+       ->enableEntityType('node')
+-      ->setBundleSettings('node', 'page');
++      ->setBundleSettings('default','node', 'page');
+ 
+     $this->drupalLogin($this->privilegedUser);
+     $this->drupalGet('admin/structure/types/manage/page');
