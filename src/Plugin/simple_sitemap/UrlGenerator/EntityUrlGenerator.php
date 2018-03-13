@@ -181,7 +181,7 @@ class EntityUrlGenerator extends UrlGeneratorBase {
       'images' => !empty($entity_settings['include_images'])
         ? $this->getImages($entity_type_name, $entity_id)
         : [],
-
+      'context' => $context,
       // Additional info useful in hooks.
       'meta' => [
         'path' => $path,
@@ -190,7 +190,6 @@ class EntityUrlGenerator extends UrlGeneratorBase {
           'id' => $entity_id,
           'bundle' => $entity->bundle(),
         ],
-        'context' => $context,
       ]
     ];
   }

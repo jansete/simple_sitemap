@@ -116,7 +116,7 @@ class CustomUrlGenerator extends UrlGeneratorBase {
     $this->includeImages = $this->generator->getSetting('custom_links_include_images', FALSE);
     $custom_links = $this->generator->getCustomLinks();
     foreach ($custom_links as $key => $link) {
-      if ($link['meta']['context'] !== $context && $link['meta']['context'] !== Simplesitemap::CONTEXT_DEFAULT) {
+      if (!empty($link['context']) && $link['context'] !== $context && $link['context'] !== Simplesitemap::CONTEXT_DEFAULT) {
         unset($custom_links[$key]);
       }
     }
@@ -159,10 +159,10 @@ class CustomUrlGenerator extends UrlGeneratorBase {
         'images' => $this->includeImages && method_exists($entity, 'getEntityTypeId')
           ? $this->getImages($entity->getEntityTypeId(), $entity->id())
           : [],
+        'context' => $context,
         'meta' => [
           'path' => $path,
-          'context' => $context,
-        ]
+        ],
       ];
 
       // Additional info useful in hooks.

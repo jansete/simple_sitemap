@@ -141,7 +141,7 @@ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
           }
         }
       }
-      $custom_links[$i]['meta']['context'] = empty($link_settings[3])
+      $custom_links[$i]['context'] = empty($link_settings[3])
         ? Simplesitemap::CONTEXT_DEFAULT
         : $link_settings[3];
     }
@@ -162,8 +162,8 @@ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
       $setting_string .= isset($custom_link['changefreq'])
         ? ' ' . $custom_link['changefreq']
         : '';
-      $setting_string .= isset($custom_link['meta']['context']) && $custom_link['meta']['context'] !== Simplesitemap::CONTEXT_DEFAULT
-        ? ' ' . $custom_link['meta']['context']
+      $setting_string .= isset($custom_link['context']) && $custom_link['context'] !== Simplesitemap::CONTEXT_DEFAULT
+        ? ' ' . $custom_link['context']
         : '';
       $setting_string .= "\r\n";
     }

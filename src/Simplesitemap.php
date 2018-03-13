@@ -81,8 +81,8 @@ class Simplesitemap {
    * @var array
    */
   protected static $allowedLinkSettings = [
-    'entity' => ['index', 'priority', 'changefreq', 'include_images'],
-    'custom' => ['priority', 'changefreq'],
+    'entity' => ['index', 'priority', 'changefreq', 'include_images', 'context'],
+    'custom' => ['priority', 'changefreq', 'context'],
   ];
 
   /**
@@ -93,6 +93,7 @@ class Simplesitemap {
     'priority' => 0.5,
     'changefreq' => '',
     'include_images' => 0,
+    'context' => 'default',
   ];
 
   /**

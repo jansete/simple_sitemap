@@ -59,9 +59,7 @@ function hook_simple_sitemap_arbitrary_links_alter(array &$arbitrary_links) {
       ['path' => 'http://path-to-image.png']
     ],
 
-    'meta' => [
-      'context' => 'default'
-    ],
+    'context' => 'default',
 
     // Add alternate URLs for every language of a multilingual site.
     // Not necessary for monolingual sites.

@@ -101,12 +101,12 @@ class ArbitraryUrlGenerator extends UrlGeneratorBase {
 
     if (!empty($arbitrary_links)) {
       foreach ($arbitrary_links as $key => $link) {
-        if (empty($link['meta']['context'])) {
-          $arbitrary_links[$key]['meta']['context'] = Simplesitemap::CONTEXT_DEFAULT;
+        if (empty($link['context'])) {
+          $arbitrary_links[$key]['context'] = Simplesitemap::CONTEXT_DEFAULT;
         }
       }
       foreach ($arbitrary_links as $key => $link) {
-        if ($link['meta']['context'] !== $context && $link['meta']['context'] !== Simplesitemap::CONTEXT_DEFAULT) {
+        if ($link['context'] !== $context && $link['context'] !== Simplesitemap::CONTEXT_DEFAULT) {
           unset($arbitrary_links[$key]);
         }
       }

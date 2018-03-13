@@ -176,11 +176,10 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
       'images' => !empty($entity_settings['include_images']) && !empty($entity)
         ? $this->getImages($entity->getEntityTypeId(), $entity->id())
         : [],
-
+      'context' => $context,
       // Additional info useful in hooks.
       'meta' => [
         'path' => $path,
-        'context' => $context,
       ]
     ];
     if (!empty($entity)) {

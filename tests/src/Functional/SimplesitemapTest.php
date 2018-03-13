@@ -27,7 +27,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    * Test custom link.
    */
   public function testAddCustomLink() {
-    $this->generator->addCustomLink('/node/' . $this->node->id(), ['priority' => 0.2, 'changefreq' => 'monthly', 'meta' => ['context' => 'default']])
+    $this->generator->addCustomLink('/node/' . $this->node->id(), ['priority' => 0.2, 'changefreq' => 'monthly', 'context' => 'default'])
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
