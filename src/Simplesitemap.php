@@ -473,7 +473,7 @@ class Simplesitemap {
         ->get("simple_sitemap.bundle_settings.$entity_type_id.$bundle_name")
         ->get();
 
-      \Drupal::service('module_handler')->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
+      $this->moduleHandler->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
 
       $bundle_settings = !empty($bundle_settings[$entity_type_id][$bundle_name]) ? $bundle_settings[$entity_type_id][$bundle_name] : FALSE;
     }
@@ -485,7 +485,7 @@ class Simplesitemap {
         $all_settings[$config_name_parts[2]][$config_name_parts[3]] = $this->configFactory->get($config_name)->get();
       }
       $bundle_settings = $all_settings;
-      \Drupal::service('module_handler')->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
+      $this->moduleHandler->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
     }
     return $bundle_settings;
   }

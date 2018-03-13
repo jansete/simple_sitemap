@@ -292,6 +292,7 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   }
 
   /**
+   * @param $context
    * @param array $path_data
    */
   protected function addUrl($context, array $path_data) {
@@ -306,8 +307,9 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   }
 
   /**
-   * @param Url $url_object
+   * @param $context
    * @param array $path_data
+   * @param Url $url_object
    */
   protected function addUrlVariants($context, array $path_data, Url $url_object) {
     $entity = $this->entityHelper->getEntityFromUrlObject($url_object);
@@ -402,7 +404,7 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
    * @param $max
    */
   protected function initializeBatch($max) {
-    $contexts = \Drupal::service('simple_sitemap.generator')->getSitemapContexts();
+    $contexts = $this->generator->getSitemapContexts();
     foreach ($contexts as $context => $context_info) {
       $this->setBatchResults($context, $this->getBatchResults($context));
       $this->setDeltaCount($context, $this->getDeltaCount($context));
@@ -514,12 +516,16 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   }
 
   /**
+   * @param $context
+   *
    * @return array
    */
   abstract public function getDataSets($context);
 
   /**
+   * @param $context
    * @param $data_set
+   *
    * @return array
    */
   abstract protected function processDataSet($context, $data_set);
@@ -527,7 +533,10 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   /**
    * Called by batch.
    *
-   * @param array|null $data_sets
+   * @param $context
+   * @param null $data_sets
+   *
+   * @return mixed|void
    */
   public function generate($context, $data_sets = NULL) {
     $data_sets = NULL !== $data_sets ? $data_sets : $this->getDataSets($context);
