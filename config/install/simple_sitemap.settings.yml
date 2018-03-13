@@ -1,7 +1,8 @@
 max_links: 2000
 cron_generate: true
 cron_generate_interval: 0
-remove_duplicates: true
+remove_duplicates: false
+remove_duplicates_by_context: true
 skip_untranslated: false
 batch_process_limit: 1500
 base_url: ''

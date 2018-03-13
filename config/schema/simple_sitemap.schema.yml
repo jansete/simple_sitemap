@@ -13,6 +13,9 @@ simple_sitemap.settings:
     remove_duplicates:
       label: 'Remove duplicates'
       type: boolean
+    remove_duplicates_by_context:
+      label: 'Remove duplicates by context'
+      type: boolean
     skip_untranslated:
       label: 'Skip untranslated'
       type: boolean

@@ -2,6 +2,7 @@
 
 namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
 
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGeneratorPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -436,7 +437,7 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
    */
   protected function processSegment($context) {
     if ($this->isBatch()) {
-      $this->setProgressInfo();
+      $this->setProgressInfo($context);
     }
 
     if (!empty($max_links = $this->batchSettings['max_links'])
@@ -462,33 +463,32 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   }
 
   /**
-   *
+   * @param $context
    */
-  protected function setProgressInfo() {
+  protected function setProgressInfo($context) {
     if ($this->context['sandbox']['progress'] != $this->context['sandbox']['max']) {
 
       // Provide progress info to the batch API.
       $this->context['finished'] = $this->context['sandbox']['progress'] / $this->context['sandbox']['max'];
 
       // Add processing message after finishing every batch segment.
-      $this->setProcessingBatchMessage();
+      $this->setProcessingBatchMessage($context);
     }
   }
 
   /**
-   *
+   * @param $context
    */
-  protected function setProcessingBatchMessage() {
-    // @todo lógica pasar contexto a getBatchResults
-//    $results = $this->getBatchResults();
-//    end($results);
-//    if (!empty($path = $results[key($results)]['meta']['path'])) {
-//      $this->context['message'] = $this->t(self::PROCESSING_PATH_MESSAGE, [
-//        '@current' => $this->context['sandbox']['progress'],
-//        '@max' => $this->context['sandbox']['max'],
-//        '@path' => HTML::escape($path),
-//      ]);
-//    }
+  protected function setProcessingBatchMessage($context) {
+    $results = $this->getBatchResults($context);
+    end($results);
+    if (!empty($path = $results[key($results)]['meta']['path'])) {
+      $this->context['message'] = $this->t(self::PROCESSING_PATH_MESSAGE, [
+        '@current' => $this->context['sandbox']['progress'],
+        '@max' => $this->context['sandbox']['max'],
+        '@path' => Html::escape($path),
+      ]);
+    }
   }
 
   /**
