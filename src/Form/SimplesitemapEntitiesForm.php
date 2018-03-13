@@ -6,7 +6,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\simple_sitemap\Simplesitemap;
 
 /**
- * Class SimplesitemapEntitiesForm
+ * Class SimplesitemapEntitiesForm.
  * @package Drupal\simple_sitemap\Form
  */
 class SimplesitemapEntitiesForm extends SimplesitemapFormBase {

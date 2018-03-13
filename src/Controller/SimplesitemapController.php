@@ -11,7 +11,7 @@ use Drupal\simple_sitemap\Simplesitemap;
 use Drupal\Core\PageCache\ResponsePolicy\KillSwitch;
 
 /**
- * Class SimplesitemapController
+ * Class SimplesitemapController.
  * @package Drupal\simple_sitemap\Controller
  */
 class SimplesitemapController extends ControllerBase {

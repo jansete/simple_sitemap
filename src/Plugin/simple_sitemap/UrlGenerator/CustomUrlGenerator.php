@@ -81,6 +81,9 @@ class CustomUrlGenerator extends UrlGeneratorBase {
     $this->pathValidator = $path_validator;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(
     ContainerInterface $container,
     array $configuration,
@@ -101,7 +104,7 @@ class CustomUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   public function getDataSets($context) {
     $this->includeImages = $this->generator->getSetting('custom_links_include_images', FALSE);
@@ -116,7 +119,7 @@ class CustomUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   protected function processDataSet($context, $data_set) {
 

@@ -126,6 +126,7 @@ class SitemapGenerator {
    * Wrapper method which takes links along with their options and then
    * generates and saves the sitemap.
    *
+   * @param $context
    * @param array $links
    *   All links with their multilingual versions and settings.
    * @param bool $remove_sitemap
@@ -149,6 +150,7 @@ class SitemapGenerator {
   /**
    * Generates and returns the sitemap index for all sitemap deltas.
    *
+   * @param $context
    * @param array $delta_info
    *   Array containing delta creation timestamps keyed by delta ID.
    *

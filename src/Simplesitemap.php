@@ -16,6 +16,9 @@ use Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator\UrlGeneratorManager
  */
 class Simplesitemap {
 
+  /**
+   *  Default value for context
+   */
   const CONTEXT_DEFAULT = 'default';
 
   /**
@@ -169,13 +172,14 @@ class Simplesitemap {
    * Returns the whole sitemap, a requested sitemap delta,
    * or the sitemap index file.
    *
-   * @param int $delta
+   * @param string $context
+   * @param null $delta
    *
-   * @return string|false
-   *   If no sitemap id provided, either a sitemap index is returned, or the
-   *   whole sitemap, if the amount of links does not exceed the max links
-   *   setting. If a sitemap id is provided, a sitemap delta is returned. False
-   *   if sitemap is not retrievable from the database.
+   * @return bool|string
+   *    If no sitemap id provided, either a sitemap index is returned, or the
+   *    whole sitemap, if the amount of links does not exceed the max links
+   *    setting. If a sitemap id is provided, a sitemap delta is returned. False
+   *    if sitemap is not retrievable from the database.
    */
   public function getSitemap($context = Simplesitemap::CONTEXT_DEFAULT, $delta = NULL) {
     $delta_info = $this->fetchSitemapDeltaInfo($context);
@@ -204,6 +208,8 @@ class Simplesitemap {
   /**
    * Fetches all sitemap delta timestamps keyed by delta ID.
    *
+   * @param $context
+   *
    * @return array
    *   An array containing delta creation timestamps keyed by delta ID.
    */
@@ -215,11 +221,11 @@ class Simplesitemap {
   /**
    * Fetches a single sitemap delta by ID.
    *
-   * @param int $id
-   *   The delta ID.
+   * @param $context
+   * @param $delta
    *
-   * @return object
-   *   A sitemap delta object.
+   * @return mixed
+   *    A sitemap delta object.
    */
   protected function fetchSitemapDelta($context, $delta) {
     return $this->db->query('SELECT * FROM {simple_sitemap} WHERE context = :context AND delta = :delta',
@@ -277,6 +283,7 @@ class Simplesitemap {
   /**
    * Generates and returns the sitemap index as string.
    *
+   * @param $context
    * @param array $delta_info
    *   Array containing delta creation timestamps keyed by delta ID.
    *
@@ -361,6 +368,7 @@ class Simplesitemap {
    * Sets sitemap settings for a non-bundle entity type (e.g. user) or a bundle
    * of an entity type (e.g. page).
    *
+   * @param $context
    * @param string $entity_type_id
    *  Entity type id like 'node' the bundle belongs to.
    * @param string $bundle_name
@@ -445,6 +453,7 @@ class Simplesitemap {
    * Gets sitemap settings for an entity bundle, a non-bundle entity type or for
    * all entity types and their bundles.
    *
+   * @param $context
    * @param string|null $entity_type_id
    *  If set to null, sitemap settings for all entity types and their bundles
    *  are fetched.
@@ -462,7 +471,7 @@ class Simplesitemap {
         ->get("simple_sitemap.bundle_settings.$entity_type_id.$bundle_name")
         ->get();
 
-      \Drupal::service('module_handler')->alter('simple_sitemap_pre_generate_config', $bundle_settings, $context);
+      \Drupal::service('module_handler')->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
 
       $bundle_settings = !empty($bundle_settings[$entity_type_id][$bundle_name]) ? $bundle_settings[$entity_type_id][$bundle_name] : FALSE;
     }
@@ -474,13 +483,9 @@ class Simplesitemap {
         $all_settings[$config_name_parts[2]][$config_name_parts[3]] = $this->configFactory->get($config_name)->get();
       }
       $bundle_settings = $all_settings;
-      \Drupal::service('module_handler')->alter('simple_sitemap_pre_generate_config', $bundle_settings, $context);
+      \Drupal::service('module_handler')->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
     }
-
-
     return $bundle_settings;
-
-
   }
 
   /**
@@ -505,6 +510,7 @@ class Simplesitemap {
   /**
    * Overrides entity bundle/entity type sitemap settings for a single entity.
    *
+   * @param $context
    * @param string $entity_type_id
    * @param int $id
    * @param array $settings
@@ -553,6 +559,7 @@ class Simplesitemap {
    * Gets sitemap settings for an entity instance which overrides the sitemap
    * settings of its bundle, or bundle settings, if they are not overridden.
    *
+   * @param $context
    * @param string $entity_type_id
    * @param int $id
    *
@@ -604,6 +611,7 @@ class Simplesitemap {
    * Checks if an entity bundle (or a non-bundle entity type) is set to be
    * indexed in the sitemap settings.
    *
+   * @param $context
    * @param string $entity_type_id
    * @param string|null $bundle_name
    *

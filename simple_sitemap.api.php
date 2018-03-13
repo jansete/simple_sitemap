@@ -120,9 +120,9 @@ function hook_simple_sitemap_url_generators_alter(array &$generators) {
  * @param string $sitemap_context
 *   The sitemap context.
  */
-function hook_simple_sitemap_pre_generate_config_alter(&$bundle_settings, $sitemap_context) {
+function hook_simple_sitemap_bundle_settings_alter(&$bundle_settings, $sitemap_context) {
   if ($sitemap_context === 'product') {
-  // Ejemplo para EntityUrlGenerator
+    // Example of EntityUrlGenerator
     // $bundle_settings[$entity_type][$bundle]
     $bundle_settings['node']['article'] = [
       'index' => 1,
@@ -130,7 +130,7 @@ function hook_simple_sitemap_pre_generate_config_alter(&$bundle_settings, $sitem
       'changefreq' => "",
       'include_images' => 0,
     ];
-    // Ejemplo para EntityMenuLinkContentUrlGenerator
+    // Example of EntityMenuLinkContentUrlGenerator
     // $bundle_settings['menu_link_content'][$menu_name]
     $bundle_settings['menu_link_content']['main'] = [
       'index' => 1,

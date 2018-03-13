@@ -74,6 +74,9 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
     $this->menuLinkTree = $menu_link_tree;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(
     ContainerInterface $container,
     array $configuration,
@@ -94,7 +97,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   public function getDataSets($context) {
     $menu_names = [];
@@ -111,7 +114,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   protected function processDataSet($context, $link) {
 
@@ -183,7 +186,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   protected function getBatchIterationElements($menu_name) {
 

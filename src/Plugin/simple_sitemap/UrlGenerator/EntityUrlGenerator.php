@@ -71,6 +71,9 @@ class EntityUrlGenerator extends UrlGeneratorBase {
     $this->urlGeneratorManager = $url_generator_manager;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(
     ContainerInterface $container,
     array $configuration,
@@ -91,14 +94,14 @@ class EntityUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   public function getDataSets($context) {
     $data_sets = [];
     $sitemap_entity_types = $this->entityHelper->getSupportedEntityTypes();
     $bundle_settings = $this->generator->getBundleSettings($context);
 
-    \Drupal::service('module_handler')->alter('simple_sitemap_pre_generate_config', $bundle_settings, $context);
+    \Drupal::service('module_handler')->alter('simple_sitemap_bundle_settings', $bundle_settings, $context);
 
     if (!empty($bundle_settings)) {
       foreach ($bundle_settings as $entity_type_name => $bundles) {
@@ -130,7 +133,7 @@ class EntityUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   protected function processDataSet($context, $entity) {
 
@@ -185,7 +188,7 @@ class EntityUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   protected function getBatchIterationElements($entity_info) {
     $query = $this->entityTypeManager->getStorage($entity_info['entity_type_name'])->getQuery();

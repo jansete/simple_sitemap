@@ -115,6 +115,9 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
       ->load(self::ANONYMOUS_USER_ID);
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     return new static(
       $configuration,
@@ -154,54 +157,98 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     return $this->batchSettings['from'] !== 'nobatch';
   }
 
+  /**
+   * @return array
+   */
   protected function getProcessedElements() {
     return !empty($this->context['results']['processed_paths'])
       ? $this->context['results']['processed_paths']
       : [];
   }
 
+  /**
+   * @param $path
+   */
   protected function addProcessedElement($path) {
     $this->context['results']['processed_paths'][] = $path;
   }
 
+  /**
+   * @param $elements
+   */
   protected function setProcessedElements($elements) {
     $this->context['results']['processed_elements'] = $elements;
   }
 
+  /**
+   * @param $context
+   *
+   * @return array
+   */
   protected function getProcessedElementsByContext($context) {
     return !empty($this->context['results']['processed_paths_by_context'][$context])
       ? $this->context['results']['processed_paths_by_context'][$context]
       : [];
   }
 
+  /**
+   * @param $context
+   * @param $path
+   */
   protected function addProcessedElementByContext($context, $path) {
     $this->context['results']['processed_paths_by_context'][$context][] = $path;
   }
 
+  /**
+   * @param $context
+   * @param $elements
+   */
   protected function setProcessedElementsByContext($context, $elements) {
     $this->context['results']['processed_elements_by_context'][$context] = $elements;
   }
 
+  /**
+   * @param $context
+   *
+   * @return array
+   */
   protected function getBatchResults($context) {
     return !empty($this->context['results'][$context]['generate'])
       ? $this->context['results'][$context]['generate']
       : [];
   }
 
+  /**
+   * @param $context
+   * @param $result
+   */
   protected function addBatchResult($context, $result) {
     $this->context['results'][$context]['generate'][] = $result;
   }
 
+  /**
+   * @param $context
+   * @param $results
+   */
   protected function setBatchResults($context, $results) {
     $this->context['results'][$context]['generate'] = $results;
   }
 
+  /**
+   * @param $context
+   *
+   * @return int
+   */
   protected function getDeltaCount($context) {
     return !empty($this->context['results'][$context]['delta_count'])
       ? $this->context['results'][$context]['delta_count']
       : 0;
   }
 
+  /**
+   * @param $context
+   * @param $delta_count
+   */
   protected function setDeltaCount($context, $delta_count) {
     $this->context['results'][$context]['delta_count'] = $delta_count;
   }
@@ -218,6 +265,12 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     return FALSE;
   }
 
+  /**
+   * @param $context
+   * @param $path
+   *
+   * @return bool
+   */
   protected function pathProcessedByContext($context, $path) {
     if (in_array($path, $this->getProcessedElementsByContext($context))) {
       return TRUE;
@@ -274,6 +327,11 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     }
   }
 
+  /**
+   * @param $url_object
+   *
+   * @return array
+   */
   protected function getAlternateUrlsForDefaultLanguage($url_object) {
     $alternate_urls = [];
     if ($url_object->access($this->anonUser)) {
@@ -283,6 +341,12 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     return $alternate_urls;
   }
 
+  /**
+   * @param $entity
+   * @param $url_object
+   *
+   * @return array
+   */
   protected function getAlternateUrlsForTranslatedLanguages($entity, $url_object) {
     $alternate_urls = [];
     foreach ($entity->getTranslationLanguages() as $language) {
@@ -297,6 +361,11 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     return $alternate_urls;
   }
 
+  /**
+   * @param $url_object
+   *
+   * @return array
+   */
   protected function getAlternateUrlsForAllLanguages($url_object) {
     $alternate_urls = [];
     if ($url_object->access($this->anonUser)) {
@@ -349,7 +418,7 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   }
 
   /**
-   *
+   * @param $context
    */
   protected function processSegment($context) {
     if ($this->isBatch()) {
@@ -378,6 +447,9 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     }
   }
 
+  /**
+   *
+   */
   protected function setProgressInfo() {
     if ($this->context['sandbox']['progress'] != $this->context['sandbox']['max']) {
 
@@ -389,6 +461,9 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     }
   }
 
+  /**
+   *
+   */
   protected function setProcessingBatchMessage() {
     // @todo lógica pasar contexto a getBatchResults
 //    $results = $this->getBatchResults();

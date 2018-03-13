@@ -405,6 +405,9 @@ function simple_sitemap_update_8209() {
   return t('You may now want to configure your sitemap entities to include images.');
 }
 
+/**
+ * Adding column for sitemap context and change id for delta in simple_sitemap table.
+ */
 function simple_sitemap_update_8210() {
   \Drupal::database()->schema()->dropTable('simple_sitemap');
   $schema = simple_sitemap_schema();

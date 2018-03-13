@@ -6,7 +6,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\simple_sitemap\Simplesitemap;
 
 /**
- * Class SimplesitemapCustomLinksForm
+ * Class SimplesitemapCustomLinksForm.
  * @package Drupal\simple_sitemap\Form
  */
 class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {

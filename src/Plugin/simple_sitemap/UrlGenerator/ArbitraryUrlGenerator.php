@@ -68,6 +68,9 @@ class ArbitraryUrlGenerator extends UrlGeneratorBase {
     $this->moduleHandler = $module_handler;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(
     ContainerInterface $container,
     array $configuration,
@@ -89,20 +92,18 @@ class ArbitraryUrlGenerator extends UrlGeneratorBase {
 
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   public function getDataSets($context) {
     $arbitrary_links = [];
     $this->moduleHandler->alter('simple_sitemap_arbitrary_links', $arbitrary_links);
 
     if (!empty($arbitrary_links)) {
-      // Añadir meta context
       foreach ($arbitrary_links as $key => $link) {
         if (empty($link['meta']['context'])) {
           $arbitrary_links[$key]['meta']['context'] = Simplesitemap::CONTEXT_DEFAULT;
         }
       }
-      // filtrar por el contexto actual
       foreach ($arbitrary_links as $key => $link) {
         if ($link['meta']['context'] !== $context && $link['meta']['context'] !== 'always') {
           unset($arbitrary_links[$key]);
@@ -114,12 +115,9 @@ class ArbitraryUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   protected function processDataSet($context, $data_set) {
-//    foreach ($data_set as &$link) {
-//      if (!empty())
-//    }
     return $data_set;
   }
 }
