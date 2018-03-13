@@ -95,7 +95,13 @@ class SimplesitemapSettingsForm extends SimplesitemapFormBase {
       '#type' => 'checkbox',
       '#title' => $this->t('Exclude duplicate links'),
       '#description' => $this->t('Uncheck this to significantly speed up the sitemap generation process on a huge site (more than 20 000 indexed entities).'),
-      '#default_value' => $this->generator->getSetting('remove_duplicates', TRUE),
+      '#default_value' => $this->generator->getSetting('remove_duplicates', FALSE),
+    ];
+
+    $form['simple_sitemap_settings']['advanced']['remove_duplicates_by_context'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Exclude duplicate links by context'),
+      '#default_value' => $this->generator->getSetting('remove_duplicates_by_context', TRUE),
     ];
 
     $form['simple_sitemap_settings']['advanced']['max_links'] = [
@@ -169,6 +175,7 @@ class SimplesitemapSettingsForm extends SimplesitemapFormBase {
                'cron_generate',
                'cron_generate_interval',
                'remove_duplicates',
+               'remove_duplicates_by_context',
                'skip_untranslated',
                'batch_process_limit',
                'base_url',] as $setting_name) {
