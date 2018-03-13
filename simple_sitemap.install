@@ -411,7 +411,6 @@ function simple_sitemap_update_8209() {
  */
 function simple_sitemap_update_8210() {
   \Drupal::database()->schema()->dropTable('simple_sitemap');
-  // @todo Buscar que pase por el alter
-  $schema = simple_sitemap_schema();
+  $schema = drupal_get_module_schema('simple_sitemap', 'simple_sitemap');
   \Drupal::database()->schema()->createTable('simple_sitemap', $schema['simple_sitemap']);
 }
