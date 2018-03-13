@@ -4,6 +4,7 @@ namespace Drupal\simple_sitemap;
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Path\PathValidator;
 use Drupal\Core\Config\ConfigFactory;
 use Drupal\Core\Datetime\DateFormatter;
@@ -117,7 +118,8 @@ class Simplesitemap {
     DateFormatter $dateFormatter,
     Time $time,
     Batch $batch,
-    UrlGeneratorManager $urlGeneratorManager
+    UrlGeneratorManager $urlGeneratorManager,
+    ModuleHandlerInterface $moduleHandler
   ) {
     $this->sitemapGenerator = $sitemapGenerator;
     $this->entityHelper = $entityHelper;
@@ -129,7 +131,7 @@ class Simplesitemap {
     $this->time = $time;
     $this->batch = $batch;
     $this->urlGeneratorManager = $urlGeneratorManager;
-    $this->moduleHandler = \Drupal::moduleHandler();
+    $this->moduleHandler = $moduleHandler;
   }
 
   /**
