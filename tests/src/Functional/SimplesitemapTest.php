@@ -314,7 +314,8 @@ class SimplesitemapTest extends SimplesitemapTestBase {
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
-    $this->assertSession()->responseContains('http://base_url_test/sitemaps/default/1/sitemap.xml');
+    $url = Url::fromRoute('simple_sitemap.delta', ['context' => 'default', 'delta' => 1]);
+    $this->assertSession()->responseContains('http://base_url_test' . $url->toString());
   }
 
   /**
