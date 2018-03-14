@@ -307,7 +307,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
-//    $this->assertSession()->responseContains('http://base_url_test');
+    $this->assertSession()->responseContains('http://base_url_test');
 
     // Set base URL in the sitemap index.
     $this->generator->saveSetting('max_links', 1)
