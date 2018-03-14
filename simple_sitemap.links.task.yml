@@ -13,5 +13,3 @@ simple_sitemap.settings_custom:
   route_name: simple_sitemap.settings_custom
   title: 'Custom links'
   base_route: simple_sitemap.settings
-
-
