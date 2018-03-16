@@ -222,6 +222,15 @@ class Simplesitemap {
   }
 
   /**
+   * Get last sitemap_created.
+   */
+  protected function fetchSitemapCreatedInfo() {
+    return $this->db
+      ->query('SELECT sitemap_created FROM {simple_sitemap} ORDER BY sitemap_created DESC LIMIT 1')
+      ->fetchField();
+  }
+
+  /**
    * Fetches a single sitemap delta by ID.
    *
    * @param $context
@@ -308,11 +317,10 @@ class Simplesitemap {
    *   Formatted timestamp of last sitemap generation, otherwise FALSE.
    */
   public function getGeneratedAgo() {
-    $deltas = $this->fetchSitemapDeltaInfo();
-    if (isset($deltas[SitemapGenerator::FIRST_DELTA_INDEX]->sitemap_created)) {
+    $sitemap_created = $this->fetchSitemapCreatedInfo();
+    if (isset($sitemap_created)) {
       return $this->dateFormatter
-        ->formatInterval($this->time->getRequestTime() - $deltas[SitemapGenerator::FIRST_DELTA_INDEX]
-            ->sitemap_created);
+        ->formatInterval($this->time->getRequestTime() - $sitemap_created);
     }
     return FALSE;
   }
