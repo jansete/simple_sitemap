@@ -21,7 +21,6 @@ use Drupal\Core\Menu\MenuLinkTree;
  *   id = "entity_menu_link_content",
  *   title = @Translation("Menu link URL generator"),
  *   description = @Translation("Generates menu link URLs by overriding the 'entity' URL generator."),
- *   enabled = TRUE,
  *   weight = 5,
  *   settings = {
  *     "instantiate_for_each_data_set" = true,

@@ -17,14 +17,14 @@ use Drupal\Component\Annotation\Plugin;
 class UrlGenerator extends Plugin {
 
   /**
-   * The plugin ID.
+   * The generator ID.
    *
    * @var string
    */
   public $id;
 
   /**
-   * The human-readable name of the plugin.
+   * The human-readable name of the generator.
    *
    * @ingroup plugin_translatable
    *
@@ -33,7 +33,7 @@ class UrlGenerator extends Plugin {
   public $title;
 
   /**
-   * A short description of the plugin.
+   * A short description of the generator.
    *
    * @ingroup plugin_translatable
    *
@@ -49,16 +49,18 @@ class UrlGenerator extends Plugin {
   public $weight = 0;
 
   /**
-   * Whether this plugin is enabled or disabled by default.
+   * Whether the generator is enabled by default.
    *
    * @var bool
    */
   public $enabled = TRUE;
 
   /**
-   * The default settings for the plugin.
+   * Default generator settings.
    *
    * @var array
    */
-  public $settings = [];
+  public $settings = [
+    'instantiate_for_each_data_set' => FALSE,
+  ];
 }

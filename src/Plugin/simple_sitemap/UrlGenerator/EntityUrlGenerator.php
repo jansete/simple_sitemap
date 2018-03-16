@@ -19,7 +19,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *   id = "entity",
  *   title = @Translation("Entity URL generator"),
  *   description = @Translation("Generates URLs for entity bundles and bundle overrides."),
- *   enabled = TRUE,
  *   weight = 10,
  *   settings = {
  *     "instantiate_for_each_data_set" = true,

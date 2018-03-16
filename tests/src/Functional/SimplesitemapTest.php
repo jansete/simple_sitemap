@@ -348,7 +348,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
   /**
    * Test overriding of bundle settings for a single entity.
    *
-   * @todo: Use form testing instead of assertRaw().
+   * @todo: Use form testing instead of responseContains().
    */
   public function testSetEntityInstanceSettings() {
     $this->generator->setBundleSettings('default','node', 'page')

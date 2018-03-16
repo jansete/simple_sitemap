@@ -464,9 +464,9 @@ class FormHelper {
    *   Select options.
    */
   public function getChangefreqSelectValues() {
-    $options = ['' => t('- Not specified -')];
+    $options = ['' => $this->t('- Not specified -')];
     foreach (self::$changefreqValues as $setting) {
-      $options[$setting] = t($setting);
+      $options[$setting] = $this->t($setting);
     }
     return $options;
   }
