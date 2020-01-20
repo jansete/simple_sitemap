@@ -27,7 +27,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    * Test custom link.
    */
   public function testAddCustomLink() {
-    $this->generator->addCustomLink('/node/' . $this->node->id(), ['priority' => 0.2, 'changefreq' => 'monthly'])
+    $this->generator->addCustomLink('/node/' . $this->node->id(), ['priority' => 0.2, 'changefreq' => 'monthly', 'context' => 'default'])
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
@@ -90,11 +90,11 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    * @todo Add form tests
    */
   public function testSetBundleSettings() {
-    $this->assertFalse($this->generator->bundleIsIndexed('node', 'page'));
+    $this->assertFalse($this->generator->bundleIsIndexed('default', 'node', 'page'));
 
     // Index new bundle.
     $this->generator->removeCustomLinks()
-      ->setBundleSettings('node', 'page', [
+      ->setBundleSettings('default','node', 'page', [
         'index' => TRUE,
         'priority' => 0.5,
         'changefreq' => 'hourly',
@@ -106,10 +106,10 @@ class SimplesitemapTest extends SimplesitemapTestBase {
     $this->assertSession()->responseContains('0.5');
     $this->assertSession()->responseContains('hourly');
 
-    $this->assertTrue($this->generator->bundleIsIndexed('node', 'page'));
+    $this->assertTrue($this->generator->bundleIsIndexed('default','node', 'page'));
 
     // Only change bundle priority.
-    $this->generator->setBundleSettings('node', 'page', ['priority' => 0.9])
+    $this->generator->setBundleSettings('default','node', 'page', ['priority' => 0.9])
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
@@ -118,7 +118,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
     $this->assertSession()->responseContains('0.9');
 
     // Only change bundle changefreq.
-    $this->generator->setBundleSettings('node', 'page', ['changefreq' => 'daily'])
+    $this->generator->setBundleSettings('default','node', 'page', ['changefreq' => 'daily'])
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
@@ -127,7 +127,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
     $this->assertSession()->responseContains('daily');
 
     // Remove changefreq setting.
-    $this->generator->setBundleSettings('node', 'page', ['changefreq' => ''])
+    $this->generator->setBundleSettings('default','node', 'page', ['changefreq' => ''])
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
@@ -139,8 +139,8 @@ class SimplesitemapTest extends SimplesitemapTestBase {
     $this->drupalCreateContentType(['type' => 'blog']);
 
     $node3 = $this->createNode(['title' => 'Node3', 'type' => 'blog']);
-    $this->generator->setBundleSettings('node', 'page', ['index' => TRUE])
-      ->setBundleSettings('node', 'blog', ['index' => TRUE])
+    $this->generator->setBundleSettings('default','node', 'page', ['index' => TRUE])
+      ->setBundleSettings('default','node', 'blog', ['index' => TRUE])
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
@@ -148,8 +148,8 @@ class SimplesitemapTest extends SimplesitemapTestBase {
     $this->assertSession()->responseContains('node/' . $node3->id());
 
     // Set bundle 'index' setting to false.
-    $this->generator->setBundleSettings('node', 'page', ['index' => FALSE])
-      ->setBundleSettings('node', 'blog', ['index' => FALSE])
+    $this->generator->setBundleSettings('default','node', 'page', ['index' => FALSE])
+      ->setBundleSettings('default','node', 'blog', ['index' => FALSE])
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
@@ -161,7 +161,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    * Test default settings of bundles.
    */
   public function testSetBundleSettingsDefaults() {
-    $this->generator->setBundleSettings('node', 'page')
+    $this->generator->setBundleSettings('default','node', 'page')
       ->removeCustomLinks()
       ->generateSitemap('nobatch');
 
@@ -176,7 +176,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    */
   public function testLastmod() {
     // Entity links should have 'lastmod'.
-    $this->generator->setBundleSettings('node', 'page')
+    $this->generator->setBundleSettings('default','node', 'page')
       ->removeCustomLinks()
       ->generateSitemap('nobatch');
 
@@ -184,7 +184,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
     $this->assertSession()->responseContains('lastmod');
 
     // Entity custom links should have 'lastmod'.
-    $this->generator->setBundleSettings('node', 'page', ['index' => FALSE])
+    $this->generator->setBundleSettings('default','node', 'page', ['index' => FALSE])
       ->addCustomLink('/node/' . $this->node->id())
       ->generateSitemap('nobatch');
 
@@ -206,9 +206,10 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    * @todo On second generation too many links in XML output here?
    */
   public function testRemoveDuplicatesSetting() {
-    $this->generator->setBundleSettings('node', 'page', ['index' => TRUE])
+    $this->generator->setBundleSettings('default','node', 'page', ['index' => TRUE])
       ->addCustomLink('/node/1')
       ->saveSetting('remove_duplicates', TRUE)
+      ->saveSetting('remove_duplicates_by_context', FALSE)
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
@@ -225,21 +226,21 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    * Test max links setting and the sitemap index.
    */
   public function testMaxLinksSetting() {
-    $this->generator->setBundleSettings('node', 'page')
+    $this->generator->setBundleSettings('default','node', 'page')
       ->saveSetting('max_links', 1)
       ->removeCustomLinks()
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
-    $this->assertSession()->responseContains('sitemaps/1/sitemap.xml');
-    $this->assertSession()->responseContains('sitemaps/2/sitemap.xml');
+    $this->assertSession()->responseContains('sitemaps/default/1/sitemap.xml');
+    $this->assertSession()->responseContains('sitemaps/default/2/sitemap.xml');
 
-    $this->drupalGet('sitemaps/1/sitemap.xml');
+    $this->drupalGet('sitemaps/default/1/sitemap.xml');
     $this->assertSession()->responseContains('node/' . $this->node->id());
     $this->assertSession()->responseContains('0.5');
     $this->assertSession()->responseNotContains('node/' . $this->node2->id());
 
-    $this->drupalGet('sitemaps/2/sitemap.xml');
+    $this->drupalGet('sitemaps/default/2/sitemap.xml');
     $this->assertSession()->responseContains('node/' . $this->node2->id());
     $this->assertSession()->responseContains('0.5');
     $this->assertSession()->responseNotContains('node/' . $this->node->id());
@@ -255,7 +256,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
     }
 
     // Test batch_process_limit setting.
-    $sitemap = $this->generator->setBundleSettings('node', 'page')
+    $sitemap = $this->generator->setBundleSettings('default','node', 'page')
       ->generateSitemap('nobatch')
       ->getSitemap();
 
@@ -271,25 +272,25 @@ class SimplesitemapTest extends SimplesitemapTestBase {
     $this->assertEquals($sitemap3, $sitemap);
 
     // Test batch_process_limit setting in combination with max_links setting.
-    $sitemap_index = $this->generator->setBundleSettings('node', 'page')
+    $sitemap_index = $this->generator->setBundleSettings('default','node', 'page')
       ->saveSetting('batch_process_limit', 1500)
       ->saveSetting('max_links', 30)
       ->generateSitemap('nobatch')
       ->getSitemap();
 
-    $sitemap_chunk = $this->generator->getSitemap(1);
+    $sitemap_chunk = $this->generator->getSitemap('default',1);
 
     $sitemap_index2 = $this->generator->saveSetting('batch_process_limit', 1)
       ->generateSitemap('nobatch')
       ->getSitemap();
 
-    $sitemap_chunk2 = $this->generator->getSitemap(1);
+    $sitemap_chunk2 = $this->generator->getSitemap('default',1);
 
     $sitemap_index3 = $this->generator->saveSetting('batch_process_limit', 10)
       ->generateSitemap('nobatch')
       ->getSitemap();
 
-    $sitemap_chunk3 = $this->generator->getSitemap(1);
+    $sitemap_chunk3 = $this->generator->getSitemap('default',1);
 
     $this->assertSame($sitemap_index2, $sitemap_index);
     $this->assertSame($sitemap_chunk2, $sitemap_chunk);
@@ -301,7 +302,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    * Test setting the base URL.
    */
   public function testBaseUrlSetting() {
-    $this->generator->setBundleSettings('node', 'page')
+    $this->generator->setBundleSettings('default','node', 'page')
       ->saveSetting('base_url', 'http://base_url_test')
       ->generateSitemap('nobatch');
 
@@ -313,7 +314,8 @@ class SimplesitemapTest extends SimplesitemapTestBase {
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
-    $this->assertSession()->responseContains('http://base_url_test/sitemaps/1/sitemap.xml');
+    $url = Url::fromRoute('simple_sitemap.delta', ['context' => 'default', 'delta' => 1]);
+    $this->assertSession()->responseContains('http://base_url_test' . $url->toString());
   }
 
   /**
@@ -328,7 +330,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    * Test cacheability of the response.
    */
   public function testCacheability() {
-    $this->generator->setBundleSettings('node', 'page')
+    $this->generator->setBundleSettings('default','node', 'page')
       ->generateSitemap('nobatch');
 
     // Verify the cache was flushed and node is in the sitemap.
@@ -349,10 +351,10 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    * @todo: Use form testing instead of responseContains().
    */
   public function testSetEntityInstanceSettings() {
-    $this->generator->setBundleSettings('node', 'page')
+    $this->generator->setBundleSettings('default','node', 'page')
       ->removeCustomLinks()
-      ->setEntityInstanceSettings('node', $this->node->id(), ['priority' => 0.1, 'changefreq' => 'never'])
-      ->setEntityInstanceSettings('node', $this->node2->id(), ['index' => FALSE])
+      ->setEntityInstanceSettings('default','node', $this->node->id(), ['priority' => 0.1, 'changefreq' => 'never'])
+      ->setEntityInstanceSettings('default','node', $this->node2->id(), ['index' => FALSE])
       ->generateSitemap('nobatch');
 
     // Test sitemap result.
@@ -379,7 +381,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
       ->fetchField();
     $this->assertFalse(empty($result));
 
-    $this->generator->setBundleSettings('node', 'page', ['priority' => 0.1, 'changefreq' => 'never'])
+    $this->generator->setBundleSettings('default','node', 'page', ['priority' => 0.1, 'changefreq' => 'never'])
       ->generateSitemap('nobatch');
 
     // Test sitemap result.
@@ -412,7 +414,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    */
   /*public function testAtomicEntityIndexation() {
     $user_id = $this->privilegedUser->id();
-    $this->generator->setBundleSettings('user')
+    $this->generator->setBundleSettings('default', 'user')
       ->generateSitemap('nobatch');
 
     $this->drupalGet('sitemap.xml');
@@ -437,7 +439,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
    * Test disabling sitemap support for an entity type.
    */
   public function testDisableEntityType() {
-    $this->generator->setBundleSettings('node', 'page')
+    $this->generator->setBundleSettings('default','node', 'page')
       ->disableEntityType('node');
 
     $this->drupalLogin($this->privilegedUser);
@@ -460,7 +462,7 @@ class SimplesitemapTest extends SimplesitemapTestBase {
   public function testEnableEntityType() {
     $this->generator->disableEntityType('node')
       ->enableEntityType('node')
-      ->setBundleSettings('node', 'page');
+      ->setBundleSettings('default','node', 'page');
 
     $this->drupalLogin($this->privilegedUser);
     $this->drupalGet('admin/structure/types/manage/page');

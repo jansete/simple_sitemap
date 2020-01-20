@@ -2,6 +2,7 @@
 
 namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
 
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\simple_sitemap\EntityHelper;
 use Drupal\simple_sitemap\Logger;
 use Drupal\simple_sitemap\Simplesitemap;
@@ -36,16 +37,20 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
 
   /**
    * EntityMenuLinkContentUrlGenerator constructor.
+   *
    * @param array $configuration
-   * @param string $plugin_id
-   * @param mixed $plugin_definition
-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   * @param \Drupal\simple_sitemap\Logger $logger
-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
-   * @param \Drupal\Core\Menu\MenuLinkTree $menu_link_tree
+   * @param $plugin_id
+   * @param $plugin_definition
+   * @param Simplesitemap $generator
+   * @param SitemapGenerator $sitemap_generator
+   * @param LanguageManagerInterface $language_manager
+   * @param EntityTypeManagerInterface $entity_type_manager
+   * @param Logger $logger
+   * @param EntityHelper $entityHelper
+   * @param ModuleHandlerInterface $module_handler
+   * @param MenuLinkTree $menu_link_tree
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
    */
   public function __construct(
     array $configuration,
@@ -57,6 +62,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
     EntityTypeManagerInterface $entity_type_manager,
     Logger $logger,
     EntityHelper $entityHelper,
+    ModuleHandlerInterface $module_handler,
     MenuLinkTree $menu_link_tree
   ) {
     parent::__construct(
@@ -68,11 +74,15 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
       $language_manager,
       $entity_type_manager,
       $logger,
-      $entityHelper
+      $entityHelper,
+      $module_handler
     );
     $this->menuLinkTree = $menu_link_tree;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(
     ContainerInterface $container,
     array $configuration,
@@ -88,16 +98,17 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
       $container->get('entity_type.manager'),
       $container->get('simple_sitemap.logger'),
       $container->get('simple_sitemap.entity_helper'),
+      $container->get('module_handler'),
       $container->get('menu.link_tree')
     );
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
-  public function getDataSets() {
+  public function getDataSets($context) {
     $menu_names = [];
-    $bundle_settings = $this->generator->getBundleSettings();
+    $bundle_settings = $this->generator->getBundleSettings($context);
     if (!empty($bundle_settings['menu_link_content'])) {
       foreach ($bundle_settings['menu_link_content'] as $bundle_name => $settings) {
         if ($settings['index']) {
@@ -110,9 +121,9 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
-  protected function processDataSet($link) {
+  protected function processDataSet($context, $link) {
 
     if (!$link->isEnabled()) {
       return FALSE;
@@ -128,12 +139,12 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
     // If not a menu_link_content link, use bundle settings.
     $meta_data = $link->getMetaData();
     if (empty($meta_data['entity_id'])) {
-      $entity_settings = $this->generator->getBundleSettings('menu_link_content', $link->getMenuName());
+      $entity_settings = $this->generator->getBundleSettings($context,'menu_link_content', $link->getMenuName());
     }
 
     // If menu link is of entity type menu_link_content, take under account its entity override.
     else {
-      $entity_settings = $this->generator->getEntityInstanceSettings('menu_link_content', $meta_data['entity_id']);
+      $entity_settings = $this->generator->getEntityInstanceSettings($context,'menu_link_content', $meta_data['entity_id']);
 
       if (empty($entity_settings['index'])) {
         return FALSE;
@@ -142,6 +153,9 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
 
     $path = $url_object->getInternalPath();
 
+    if ($this->batchSettings['remove_duplicates_by_context'] && $this->pathProcessedByContext($context, $path)) {
+      return FALSE;
+    }
     // Do not include paths that have been already indexed.
     if ($this->batchSettings['remove_duplicates'] && $this->pathProcessed($path)) {
       return FALSE;
@@ -161,7 +175,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
       'images' => !empty($entity_settings['include_images']) && !empty($entity)
         ? $this->getImages($entity->getEntityTypeId(), $entity->id())
         : [],
-
+      'context' => $context,
       // Additional info useful in hooks.
       'meta' => [
         'path' => $path,
@@ -178,7 +192,7 @@ class EntityMenuLinkContentUrlGenerator extends UrlGeneratorBase {
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   protected function getBatchIterationElements($menu_name) {
 

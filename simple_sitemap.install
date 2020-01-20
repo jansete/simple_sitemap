@@ -9,6 +9,7 @@
  * Implements hook_requirements().
  *
  * @param $phase
+ *
  * @return array
  */
 function simple_sitemap_requirements($phase) {
@@ -47,11 +48,11 @@ function simple_sitemap_requirements($phase) {
           . ' ' . ($cron_generation
             ? 'Run cron, or <a href="@generate">regenerate</a> the sitemap manually.'
             : 'Generation on cron run is disabled. <a href="@generate">Regenerate</a> the sitemap manually.'), [
-              '@sitemap' => $GLOBALS['base_url'] . '/sitemap.xml',
-              '@ago' => $generated_ago,
-              '@generate' => $GLOBALS['base_url'] . '/admin/config/search/simplesitemap'
-            ]
-          );
+            '@sitemap' => $GLOBALS['base_url'] . '/sitemap.xml',
+            '@ago' => $generated_ago,
+            '@generate' => $GLOBALS['base_url'] . '/admin/config/search/simplesitemap'
+          ]
+        );
         $severity = REQUIREMENT_INFO;
       }
 
@@ -73,28 +74,34 @@ function simple_sitemap_schema() {
   $schema['simple_sitemap'] = [
     'description' => 'Holds XML sitemaps as strings for quick retrieval.',
     'fields' => [
-      'id' => [
-        'description' => 'Sitemap chunk unique identifier.',
+      'context' => [
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+      ],
+      'delta' => [
+        'description' => 'Sitemap delta unique identifier.',
         'type' => 'int',
         'size' => 'small',
         'not null' => TRUE,
         'unsigned' => TRUE,
       ],
       'sitemap_string' => [
-        'description' => 'XML sitemap chunk string.',
+        'description' => 'XML sitemap delta string.',
         'type' => 'text',
         'size' => 'big',
         'not null' => TRUE,
       ],
       'sitemap_created' => [
-        'description' => 'Timestamp of sitemap chunk generation.',
+        'description' => 'Timestamp of sitemap delta generation.',
         'type' => 'int',
         'default' => 0,
         'not null' => TRUE,
         'unsigned' => TRUE,
       ],
     ],
-    'primary key' => ['id'],
+    'primary key' => ['context', 'delta'],
   ];
 
   $schema['simple_sitemap_entity_overrides'] = [
@@ -397,4 +404,17 @@ function simple_sitemap_update_8209() {
   }
 
   return t('You may now want to configure your sitemap entities to include images.');
+}
+
+/**
+ * Adding column for sitemap context and change id for delta in simple_sitemap table.
+ */
+function simple_sitemap_update_8210() {
+  \Drupal::configFactory()
+    ->getEditable('simple_sitemap.settings')
+    ->set('remove_duplicates_by_context', TRUE)
+    ->save();
+  \Drupal::database()->schema()->dropTable('simple_sitemap');
+  $schema = drupal_get_module_schema('simple_sitemap', 'simple_sitemap');
+  \Drupal::database()->schema()->createTable('simple_sitemap', $schema);
 }

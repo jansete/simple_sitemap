@@ -12,7 +12,7 @@
 
 /**
  * Alter the generated link data before the sitemap is saved.
- * This hook gets invoked for every sitemap chunk generated.
+ * This hook gets invoked for every sitemap delta generated.
  *
  * @param array &$links
  *   Array containing multilingual links generated for each path to be indexed.
@@ -58,6 +58,8 @@ function hook_simple_sitemap_arbitrary_links_alter(array &$arbitrary_links) {
     'images' => [
       ['path' => 'http://path-to-image.png']
     ],
+
+    'context' => 'default',
 
     // Add alternate URLs for every language of a multilingual site.
     // Not necessary for monolingual sites.
@@ -105,6 +107,36 @@ function hook_simple_sitemap_url_generators_alter(array &$generators) {
 
   // Change the weight of the arbitrary link generator.
   $generators['arbitrary']['weight'] = -100;
+}
+
+/**
+* Perform alterations before a sitemap is rendered.
+ *
+ * @param array $bundle_settings
+  *   An array, containing the sitemap links and the default configuration.
+ *
+ * @param string $sitemap_context
+*   The sitemap context.
+ */
+function hook_simple_sitemap_bundle_settings_alter(&$bundle_settings, $sitemap_context) {
+  if ($sitemap_context === 'product') {
+    // Example of EntityUrlGenerator
+    // $bundle_settings[$entity_type][$bundle]
+    $bundle_settings['node']['article'] = [
+      'index' => 1,
+      'priority' => 0.5,
+      'changefreq' => "",
+      'include_images' => 0,
+    ];
+    // Example of EntityMenuLinkContentUrlGenerator
+    // $bundle_settings['menu_link_content'][$menu_name]
+    $bundle_settings['menu_link_content']['main'] = [
+      'index' => 1,
+      'priority' => 0.5,
+      'changefreq' => "",
+      'include_images' => 0,
+    ];
+  }
 }
 
 /**

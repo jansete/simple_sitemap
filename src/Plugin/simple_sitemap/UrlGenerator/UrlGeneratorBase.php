@@ -2,9 +2,10 @@
 
 namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
 
+use Drupal\Component\Utility\Html;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGeneratorPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Drupal\Component\Utility\Html;
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Url;
 use Drupal\simple_sitemap\EntityHelper;
@@ -80,16 +81,25 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   protected $entityHelper;
 
   /**
+   * @var  \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected $moduleHandler;
+
+  /**
    * UrlGeneratorBase constructor.
+   *
    * @param array $configuration
-   * @param string $plugin_id
-   * @param mixed $plugin_definition
-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   * @param \Drupal\simple_sitemap\Logger $logger
-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
+   * @param $plugin_id
+   * @param $plugin_definition
+   * @param Simplesitemap $generator
+   * @param SitemapGenerator $sitemap_generator
+   * @param LanguageManagerInterface $language_manager
+   * @param EntityTypeManagerInterface $entity_type_manager
+   * @param Logger $logger
+   * @param EntityHelper $entityHelper
+   * @param ModuleHandlerInterface $module_handler
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
    */
   public function __construct(
     array $configuration,
@@ -100,7 +110,8 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     LanguageManagerInterface $language_manager,
     EntityTypeManagerInterface $entity_type_manager,
     Logger $logger,
-    EntityHelper $entityHelper
+    EntityHelper $entityHelper,
+    ModuleHandlerInterface $module_handler
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->generator = $generator;
@@ -111,10 +122,14 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     $this->entityTypeManager = $entity_type_manager;
     $this->logger = $logger;
     $this->entityHelper = $entityHelper;
+    $this->moduleHandler = $module_handler;
     $this->anonUser = $this->entityTypeManager->getStorage('user')
       ->load(self::ANONYMOUS_USER_ID);
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     return new static(
       $configuration,
@@ -125,7 +140,8 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
       $container->get('language_manager'),
       $container->get('entity_type.manager'),
       $container->get('simple_sitemap.logger'),
-      $container->get('simple_sitemap.entity_helper')
+      $container->get('simple_sitemap.entity_helper'),
+      $container->get('module_handler')
     );
   }
 
@@ -154,42 +170,100 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     return $this->batchSettings['from'] !== 'nobatch';
   }
 
+  /**
+   * @return array
+   */
   protected function getProcessedElements() {
     return !empty($this->context['results']['processed_paths'])
       ? $this->context['results']['processed_paths']
       : [];
   }
 
+  /**
+   * @param $path
+   */
   protected function addProcessedElement($path) {
     $this->context['results']['processed_paths'][] = $path;
   }
 
+  /**
+   * @param $elements
+   */
   protected function setProcessedElements($elements) {
     $this->context['results']['processed_elements'] = $elements;
   }
 
-  protected function getBatchResults() {
-    return !empty($this->context['results']['generate'])
-      ? $this->context['results']['generate']
+  /**
+   * @param $context
+   *
+   * @return array
+   */
+  protected function getProcessedElementsByContext($context) {
+    return !empty($this->context['results']['processed_paths_by_context'][$context])
+      ? $this->context['results']['processed_paths_by_context'][$context]
       : [];
   }
 
-  protected function addBatchResult($result) {
-    $this->context['results']['generate'][] = $result;
+  /**
+   * @param $context
+   * @param $path
+   */
+  protected function addProcessedElementByContext($context, $path) {
+    $this->context['results']['processed_paths_by_context'][$context][] = $path;
   }
 
-  protected function setBatchResults($results) {
-    $this->context['results']['generate'] = $results;
+  /**
+   * @param $context
+   * @param $elements
+   */
+  protected function setProcessedElementsByContext($context, $elements) {
+    $this->context['results']['processed_elements_by_context'][$context] = $elements;
   }
 
-  protected function getChunkCount() {
-    return !empty($this->context['results']['chunk_count'])
-      ? $this->context['results']['chunk_count']
+  /**
+   * @param $context
+   *
+   * @return array
+   */
+  protected function getBatchResults($context) {
+    return !empty($this->context['results'][$context]['generate'])
+      ? $this->context['results'][$context]['generate']
+      : [];
+  }
+
+  /**
+   * @param $context
+   * @param $result
+   */
+  protected function addBatchResult($context, $result) {
+    $this->context['results'][$context]['generate'][] = $result;
+  }
+
+  /**
+   * @param $context
+   * @param $results
+   */
+  protected function setBatchResults($context, $results) {
+    $this->context['results'][$context]['generate'] = $results;
+  }
+
+  /**
+   * @param $context
+   *
+   * @return int
+   */
+  protected function getDeltaCount($context) {
+    return !empty($this->context['results'][$context]['delta_count'])
+      ? $this->context['results'][$context]['delta_count']
       : 0;
   }
 
-  protected function setChunkCount($chunk_count) {
-    $this->context['results']['chunk_count'] = $chunk_count;
+  /**
+   * @param $context
+   * @param $delta_count
+   */
+  protected function setDeltaCount($context, $delta_count) {
+    $this->context['results'][$context]['delta_count'] = $delta_count;
   }
 
   /**
@@ -205,24 +279,40 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   }
 
   /**
+   * @param $context
+   * @param $path
+   *
+   * @return bool
+   */
+  protected function pathProcessedByContext($context, $path) {
+    if (in_array($path, $this->getProcessedElementsByContext($context))) {
+      return TRUE;
+    }
+    $this->addProcessedElementByContext($context, $path);
+    return FALSE;
+  }
+
+  /**
+   * @param $context
    * @param array $path_data
    */
-  protected function addUrl(array $path_data) {
+  protected function addUrl($context, array $path_data) {
     if ($path_data['url'] instanceof Url) {
       $url_object = $path_data['url'];
       unset($path_data['url']);
-      $this->addUrlVariants($path_data, $url_object);
+      $this->addUrlVariants($context, $path_data, $url_object);
     }
     else {
-      $this->addBatchResult($path_data);
+      $this->addBatchResult($context, $path_data);
     }
   }
 
   /**
-   * @param Url $url_object
+   * @param $context
    * @param array $path_data
+   * @param Url $url_object
    */
-  protected function addUrlVariants(array $path_data, Url $url_object) {
+  protected function addUrlVariants($context, array $path_data, Url $url_object) {
     $entity = $this->entityHelper->getEntityFromUrlObject($url_object);
 
     if ($entity instanceof ContentEntityBase && $this->batchSettings['skip_untranslated']) {
@@ -244,6 +334,7 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
 
     foreach ($alternate_urls as $langcode => $url) {
       $this->addBatchResult(
+        $context,
         $path_data + [
           'langcode' => $langcode, 'url' => $url, 'alternate_urls' => $alternate_urls
         ]
@@ -251,6 +342,11 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     }
   }
 
+  /**
+   * @param $url_object
+   *
+   * @return array
+   */
   protected function getAlternateUrlsForDefaultLanguage($url_object) {
     $alternate_urls = [];
     if ($url_object->access($this->anonUser)) {
@@ -260,6 +356,12 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     return $alternate_urls;
   }
 
+  /**
+   * @param $entity
+   * @param $url_object
+   *
+   * @return array
+   */
   protected function getAlternateUrlsForTranslatedLanguages($entity, $url_object) {
     $alternate_urls = [];
     foreach ($entity->getTranslationLanguages() as $language) {
@@ -274,6 +376,11 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
     return $alternate_urls;
   }
 
+  /**
+   * @param $url_object
+   *
+   * @return array
+   */
   protected function getAlternateUrlsForAllLanguages($url_object) {
     $alternate_urls = [];
     if ($url_object->access($this->anonUser)) {
@@ -298,8 +405,12 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
    * @param $max
    */
   protected function initializeBatch($max) {
-    $this->setBatchResults($this->getBatchResults());
-    $this->setChunkCount($this->getChunkCount());
+    $contexts = $this->generator->getSitemapContexts();
+    foreach ($contexts as $context => $context_info) {
+      $this->setBatchResults($context, $this->getBatchResults($context));
+      $this->setDeltaCount($context, $this->getDeltaCount($context));
+      $this->setProcessedElementsByContext($context, $this->getProcessedElementsByContext($context));
+    }
     $this->setProcessedElements($this->getProcessedElements());
 
     // Initialize sandbox for the batch process.
@@ -322,54 +433,60 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   }
 
   /**
-   *
+   * @param $context
    */
-  protected function processSegment() {
+  protected function processSegment($context) {
     if ($this->isBatch()) {
-      $this->setProgressInfo();
+      $this->setProgressInfo($context);
     }
 
     if (!empty($max_links = $this->batchSettings['max_links'])
-      && count($this->getBatchResults()) >= $max_links) {
+      && count($this->getBatchResults($context)) >= $max_links) {
 
-      foreach (array_chunk($this->getBatchResults(), $max_links) as $chunk_links) {
+      foreach (array_chunk($this->getBatchResults($context), $max_links) as $delta_links) {
 
-        if (count($chunk_links) == $max_links) {
+        if (count($delta_links) == $max_links) {
 
           // Generate sitemap.
           $this->sitemapGenerator
             ->setSettings(['excluded_languages' => $this->batchSettings['excluded_languages']])
-            ->generateSitemap($chunk_links, empty($this->getChunkCount()));
+            ->generateSitemap($context, $delta_links, empty($this->getDeltaCount($context)));
 
-          // Update chunk count info.
-          $this->setChunkCount(empty($this->getChunkCount()) ? 1 : ($this->getChunkCount() + 1));
+          // Update delta count info.
+          $this->setDeltaCount($context, empty($this->getDeltaCount($context)) ? 1 : ($this->getDeltaCount($context) + 1));
 
           // Remove links from result array that have been generated.
-          $this->setBatchResults(array_slice($this->getBatchResults(), count($chunk_links)));
+          $this->setBatchResults($context, array_slice($this->getBatchResults($context), count($delta_links)));
         }
       }
     }
   }
 
-  protected function setProgressInfo() {
+  /**
+   * @param $context
+   */
+  protected function setProgressInfo($context) {
     if ($this->context['sandbox']['progress'] != $this->context['sandbox']['max']) {
 
       // Provide progress info to the batch API.
       $this->context['finished'] = $this->context['sandbox']['progress'] / $this->context['sandbox']['max'];
 
       // Add processing message after finishing every batch segment.
-      $this->setProcessingBatchMessage();
+      $this->setProcessingBatchMessage($context);
     }
   }
 
-  protected function setProcessingBatchMessage() {
-    $results = $this->getBatchResults();
+  /**
+   * @param $context
+   */
+  protected function setProcessingBatchMessage($context) {
+    $results = $this->getBatchResults($context);
     end($results);
     if (!empty($path = $results[key($results)]['meta']['path'])) {
       $this->context['message'] = $this->t(self::PROCESSING_PATH_MESSAGE, [
         '@current' => $this->context['sandbox']['progress'],
         '@max' => $this->context['sandbox']['max'],
-        '@path' => HTML::escape($path),
+        '@path' => Html::escape($path),
       ]);
     }
   }
@@ -399,32 +516,39 @@ abstract class UrlGeneratorBase extends UrlGeneratorPluginBase implements UrlGen
   }
 
   /**
+   * @param $context
+   *
    * @return array
    */
-  abstract public function getDataSets();
+  abstract public function getDataSets($context);
 
   /**
+   * @param $context
    * @param $data_set
+   *
    * @return array
    */
-  abstract protected function processDataSet($data_set);
+  abstract protected function processDataSet($context, $data_set);
 
   /**
    * Called by batch.
    *
-   * @param array|null $data_sets
+   * @param $context
+   * @param null $data_sets
+   *
+   * @return mixed|void
    */
-  public function generate($data_sets = NULL) {
-    $data_sets = NULL !== $data_sets ? $data_sets : $this->getDataSets();
+  public function generate($context, $data_sets = NULL) {
+    $data_sets = NULL !== $data_sets ? $data_sets : $this->getDataSets($context);
     foreach ($this->getBatchIterationElements($data_sets) as $id => $data_set) {
       $this->setCurrentId($id);
-      $path_data = $this->processDataSet($data_set);
+      $path_data = $this->processDataSet($context, $data_set);
       if (!$path_data) {
         continue;
       }
-      $this->addUrl($path_data);
+      $this->addUrl($context, $path_data);
     }
-    $this->processSegment();
+    $this->processSegment($context);
   }
 
   /**

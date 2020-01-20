@@ -2,13 +2,13 @@
 
 namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
 
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\simple_sitemap\EntityHelper;
 use Drupal\simple_sitemap\Logger;
 use Drupal\simple_sitemap\Simplesitemap;
 use Drupal\simple_sitemap\SitemapGenerator;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Extension\ModuleHandler;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -24,20 +24,21 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 class ArbitraryUrlGenerator extends UrlGeneratorBase {
 
-  protected $moduleHandler;
-
   /**
    * ArbitraryUrlGenerator constructor.
+   *
    * @param array $configuration
-   * @param string $plugin_id
-   * @param mixed $plugin_definition
-   * @param \Drupal\simple_sitemap\Simplesitemap $generator
-   * @param \Drupal\simple_sitemap\SitemapGenerator $sitemap_generator
-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   * @param \Drupal\simple_sitemap\Logger $logger
-   * @param \Drupal\simple_sitemap\EntityHelper $entityHelper
-   * @param \Drupal\Core\Extension\ModuleHandler $module_handler
+   * @param $plugin_id
+   * @param $plugin_definition
+   * @param Simplesitemap $generator
+   * @param SitemapGenerator $sitemap_generator
+   * @param LanguageManagerInterface $language_manager
+   * @param EntityTypeManagerInterface $entity_type_manager
+   * @param Logger $logger
+   * @param EntityHelper $entityHelper
+   * @param ModuleHandlerInterface $module_handler
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
    */
   public function __construct(
     array $configuration,
@@ -49,7 +50,7 @@ class ArbitraryUrlGenerator extends UrlGeneratorBase {
     EntityTypeManagerInterface $entity_type_manager,
     Logger $logger,
     EntityHelper $entityHelper,
-    ModuleHandler $module_handler
+    ModuleHandlerInterface $module_handler
   ) {
     parent::__construct(
       $configuration,
@@ -60,11 +61,14 @@ class ArbitraryUrlGenerator extends UrlGeneratorBase {
       $language_manager,
       $entity_type_manager,
       $logger,
-      $entityHelper
+      $entityHelper,
+      $module_handler
     );
-    $this->moduleHandler = $module_handler;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(
     ContainerInterface $container,
     array $configuration,
@@ -86,18 +90,32 @@ class ArbitraryUrlGenerator extends UrlGeneratorBase {
 
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
-  public function getDataSets() {
+  public function getDataSets($context) {
     $arbitrary_links = [];
     $this->moduleHandler->alter('simple_sitemap_arbitrary_links', $arbitrary_links);
+
+    if (!empty($arbitrary_links)) {
+      foreach ($arbitrary_links as $key => $link) {
+        if (empty($link['context'])) {
+          $arbitrary_links[$key]['context'] = Simplesitemap::CONTEXT_DEFAULT;
+        }
+      }
+      foreach ($arbitrary_links as $key => $link) {
+        if ($link['context'] !== $context && $link['context'] !== Simplesitemap::CONTEXT_DEFAULT) {
+          unset($arbitrary_links[$key]);
+        }
+      }
+    }
+
     return array_values($arbitrary_links);
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
-  protected function processDataSet($data_set) {
+  protected function processDataSet($context, $data_set) {
     return $data_set;
   }
 }

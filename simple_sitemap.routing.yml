@@ -12,15 +12,15 @@ simple_sitemap.sitemaps:
   requirements:
     _access: 'TRUE'
 
-simple_sitemap.chunk_fallback:
-  path: '/sitemaps/{chunk_id}'
+simple_sitemap.delta_fallback:
+  path: '/sitemaps/{context}/sitemap.xml'
   defaults:
     _controller: '\Drupal\simple_sitemap\Controller\SimplesitemapController::getSitemap'
   requirements:
     _access: 'TRUE'
 
-simple_sitemap.chunk:
-  path: '/sitemaps/{chunk_id}/sitemap.xml'
+simple_sitemap.delta:
+  path: '/sitemaps/{context}/{delta}/sitemap.xml'
   defaults:
     _controller: '\Drupal\simple_sitemap\Controller\SimplesitemapController::getSitemap'
   requirements:

@@ -9,14 +9,25 @@ use Drupal\simple_sitemap\Simplesitemap;
 use Drupal\Core\Session\AccountProxyInterface;
 
 /**
- * Class FormHelper
+ * Class FormHelper.
  * @package Drupal\simple_sitemap\Form
  */
 class FormHelper {
   use StringTranslationTrait;
 
+  /**
+   *  Default priority for links.
+   */
   const PRIORITY_DEFAULT = 0.5;
+
+  /**
+   *  Max value of priority.
+   */
   const PRIORITY_HIGHEST = 10;
+
+  /**
+   *  Divider used to format priority value.
+   */
   const PRIORITY_DIVIDER = 10;
 
   /**
@@ -59,6 +70,9 @@ class FormHelper {
    */
   protected $instanceId;
 
+  /**
+   * @var array
+   */
   protected static $allowedFormOperations = [
     'default',
     'edit',
@@ -66,6 +80,9 @@ class FormHelper {
     'register',
   ];
 
+  /**
+   * @var array
+   */
   protected static $changefreqValues = [
     'always',
     'hourly',
@@ -76,6 +93,9 @@ class FormHelper {
     'never',
   ];
 
+  /**
+   * @var array
+   */
   protected static $valuesToCheck = [
     'simple_sitemap_index_content',
     'simple_sitemap_priority',
@@ -198,7 +218,7 @@ class FormHelper {
     // Do not alter the form, if sitemap is disabled for the entity type of this
     // entity instance.
     elseif ($this->getEntityCategory() === 'instance'
-      && !$this->generator->bundleIsIndexed($this->getEntityTypeId(), $this->getBundleName())) {
+      && !$this->generator->bundleIsIndexed(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getBundleName())) {
       return FALSE;
     }
 
@@ -229,13 +249,13 @@ class FormHelper {
     $prefix = $multiple ? $this->getEntityTypeId() . '_' : '';
 
     if ($this->getEntityCategory() === 'instance') {
-      $bundle_settings = $this->generator->getBundleSettings($this->getEntityTypeId(), $this->getBundleName());
+      $bundle_settings = $this->generator->getBundleSettings(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getBundleName());
       $settings = NULL !== $this->getInstanceId()
-        ? $this->generator->getEntityInstanceSettings($this->getEntityTypeId(), $this->getInstanceId())
+        ? $this->generator->getEntityInstanceSettings(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getInstanceId())
         : $bundle_settings;
     }
     else {
-      $settings = $this->generator->getBundleSettings($this->getEntityTypeId(), $this->getBundleName());
+      $settings = $this->generator->getBundleSettings(Simplesitemap::CONTEXT_DEFAULT, $this->getEntityTypeId(), $this->getBundleName());
     }
     Simplesitemap::supplementDefaultSettings('entity', $settings, ['index' => 0]);
 

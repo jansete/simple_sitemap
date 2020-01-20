@@ -13,6 +13,7 @@ services:
       - '@datetime.time'
       - '@simple_sitemap.batch'
       - '@plugin.manager.simple_sitemap.url_generator'
+      - '@module_handler'
 
   simple_sitemap.sitemap_generator:
     class: Drupal\simple_sitemap\SitemapGenerator

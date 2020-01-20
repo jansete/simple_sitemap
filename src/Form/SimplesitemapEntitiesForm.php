@@ -3,9 +3,10 @@
 namespace Drupal\simple_sitemap\Form;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\simple_sitemap\Simplesitemap;
 
 /**
- * Class SimplesitemapEntitiesForm
+ * Class SimplesitemapEntitiesForm.
  * @package Drupal\simple_sitemap\Form
  */
 class SimplesitemapEntitiesForm extends SimplesitemapFormBase {
@@ -41,7 +42,7 @@ class SimplesitemapEntitiesForm extends SimplesitemapFormBase {
 
     $this->formHelper->processForm($form_state);
 
-    $bundle_settings = $this->generator->getBundleSettings();
+    $bundle_settings = $this->generator->getBundleSettings(Simplesitemap::CONTEXT_DEFAULT);
 
     foreach ($entity_type_labels as $entity_type_id => $entity_type_label) {
 ;
@@ -118,7 +119,7 @@ class SimplesitemapEntitiesForm extends SimplesitemapFormBase {
         if ($value) {
           $this->generator->enableEntityType($entity_type_id);
           if ($this->entityHelper->entityTypeIsAtomic($entity_type_id)) {
-            $this->generator->setBundleSettings($entity_type_id, $entity_type_id, [
+            $this->generator->setBundleSettings(Simplesitemap::CONTEXT_DEFAULT, $entity_type_id, $entity_type_id, [
               'index' => TRUE,
               'priority' => $values[$entity_type_id . '_simple_sitemap_priority'],
               'changefreq' => $values[$entity_type_id . '_simple_sitemap_changefreq'],

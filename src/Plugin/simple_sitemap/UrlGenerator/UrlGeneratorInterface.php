@@ -8,10 +8,17 @@ namespace Drupal\simple_sitemap\Plugin\simple_sitemap\UrlGenerator;
  */
 interface UrlGeneratorInterface {
 
-  public function generate();
-
   /**
+   * @param $context
+   *
    * @return mixed
    */
-  public function getDataSets();
+  public function generate($context);
+
+  /**
+   * @param $context
+   *
+   * @return mixed
+   */
+  public function getDataSets($context);
 }

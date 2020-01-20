@@ -3,9 +3,10 @@
 namespace Drupal\simple_sitemap\Form;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\simple_sitemap\Simplesitemap;
 
 /**
- * Class SimplesitemapCustomLinksForm
+ * Class SimplesitemapCustomLinksForm.
  * @package Drupal\simple_sitemap\Form
  */
 class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
@@ -33,7 +34,7 @@ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
       '#type' => 'textarea',
       '#title' => $this->t('Relative Drupal paths'),
       '#default_value' => $this->customLinksToString($this->generator->getCustomLinks(FALSE)),
-      '#description' => $this->t("Please specify drupal internal (relative) paths, one per line. Do not forget to prepend the paths with a '/'.<br/>Optionally link priority <em>(0.0 - 1.0)</em> can be added by appending it after a space.<br/> Optionally link change frequency <em>(always / hourly / daily / weekly / monthly / yearly / never)</em> can be added by appending it after a space.<br/><br/><strong>Examples:</strong><br/><em>/ 1.0 daily</em> -> home page with the highest priority and daily change frequency<br/><em>/contact</em> -> contact page with the default priority and no change frequency information"),
+      '#description' => $this->t("Please specify drupal internal (relative) paths, one per line. Do not forget to prepend the paths with a '/'.<br/>Optionally link priority <em>(0.0 - 1.0)</em> can be added by appending it after a space.<br/> Optionally link change frequency <em>(always / hourly / daily / weekly / monthly / yearly / never)</em> can be added by appending it after a space.<br/>Optionally link change context <em>(default / [custom context defined in module @see hook_simple_sitemap_context_info()])</em> can be added by appending it after a space.<br/><br/><strong>Examples:</strong><br/><em>/ 1.0 daily</em> -> home page with the highest priority and daily change frequency and context default<br/><em>/contact</em> -> contact page with the default priority and no change frequency information and context default<br/><em>/about_us 0.5 daily custom_context</em> -> custom about us page with priority 0.5 , daily change frequency and context custom_context" ),
     ];
 
     $form['simple_sitemap_custom']['include_images'] = [
@@ -140,6 +141,9 @@ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
           }
         }
       }
+      $custom_links[$i]['context'] = empty($link_settings[3])
+        ? Simplesitemap::CONTEXT_DEFAULT
+        : $link_settings[3];
     }
     return $custom_links;
   }
@@ -157,6 +161,9 @@ class SimplesitemapCustomLinksForm extends SimplesitemapFormBase {
         : '';
       $setting_string .= isset($custom_link['changefreq'])
         ? ' ' . $custom_link['changefreq']
+        : '';
+      $setting_string .= isset($custom_link['context']) && $custom_link['context'] !== Simplesitemap::CONTEXT_DEFAULT
+        ? ' ' . $custom_link['context']
         : '';
       $setting_string .= "\r\n";
     }

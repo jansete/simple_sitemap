@@ -10,7 +10,7 @@ use Drupal\Core\Path\PathValidator;
 use Drupal\Core\Language\LanguageManagerInterface;
 
 /**
- * Class SimplesitemapFormBase
+ * Class SimplesitemapFormBase.
  * @package Drupal\simple_sitemap\Form
  */
 abstract class SimplesitemapFormBase extends ConfigFormBase {
